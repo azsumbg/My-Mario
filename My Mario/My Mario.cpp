@@ -127,6 +127,9 @@ ID2D1Bitmap* bmpTurtleBlocked = nullptr;
 
 std::vector<obj_ptr> vFields;
 obj_ptr Mario = nullptr;
+float jump_target_x = 0;
+float jump_target_y = 0;
+dirs opposite_dir = dirs::stop;
 
 
 ////////////////////////////////////////////
@@ -390,7 +393,7 @@ void InitGame()
         Mario->state = states::run;
     }
 
-    for (float i = 0; i < 2000; i += 1000) vFields.push_back(iCreate(types::field, i, scr_height - 290.0f));
+    for (float i = -1000; i < 2000; i += 1000) vFields.push_back(iCreate(types::field, i, scr_height - 100.0f));
     
 }
 void GameOver()
@@ -623,6 +626,51 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         }
         break;
 
+    case WM_KEYDOWN:
+        switch (LOWORD(wParam))
+        {
+        case VK_LEFT:
+            if (Mario && Mario->state!=states::jump_up && Mario->state != states::jump_down)
+            {
+                Mario->state = states::run;
+                Mario->dir = dirs::left;
+            }
+            break;
+
+        case VK_RIGHT:
+            if (Mario && Mario->state != states::jump_up && Mario->state != states::jump_down)
+            {
+                Mario->state = states::run;
+                Mario->dir = dirs::right;
+            }
+            break;
+
+        case VK_DOWN:
+            if (Mario && Mario->state != states::jump_up && Mario->state != states::jump_down) Mario->state = states::stop;
+            break;
+        
+        case VK_UP:
+            if (Mario)
+            {
+                if (Mario->state == states::jump_up || Mario->state == states::jump_down)break;
+                if (Mario->dir == dirs::right)
+                {
+                    jump_target_x = Mario->x + 100.0f;
+                    jump_target_y = Mario->y - 100.0f;
+                    Mario->Jump(jump_target_x, jump_target_y);
+
+                }
+                else if (Mario->dir == dirs::left)
+                {
+                    jump_target_x = Mario->x - 100.0f;
+                    jump_target_y = Mario->y - 100.0f;
+                    Mario->Jump(jump_target_x, jump_target_y);
+                }
+            }
+            break;
+        }
+        break;
+
     default:return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
 
     }
@@ -739,20 +787,54 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if(!vFields.empty() && Mario)
+        if (!vFields.empty() && vFields.size() < 2)
+        {
+            float tempx = (*vFields.begin())->x - 1000.0f;
+
+            vFields.push_back(iCreate(types::field,
+                (*vFields.begin())->ex, scr_height - 100.0f));
+            vFields.insert(vFields.begin(),iCreate(types::field, tempx, scr_height - 100.0f));
+        }
+
+        if (!vFields.empty() && Mario)
             for (int i = 0; i < vFields.size(); i++)
             {
-                dirs oposite_dir = dirs::stop;
-                if (Mario->dir == dirs::right)oposite_dir = dirs::left;
-                else if (Mario->dir == dirs::left)oposite_dir = dirs::right;
-                vFields[i]->dir = oposite_dir;
+                
+                if (Mario->state == states::stop)opposite_dir = dirs::stop;
+                else if (Mario->dir == dirs::right)opposite_dir = dirs::left;
+                else if (Mario->dir == dirs::left)opposite_dir = dirs::right;
+                vFields[i]->dir = opposite_dir;
             }
 
+        //MARIO MOVE ************************************************
 
-        if (!vFields.empty() && vFields.size() < 2)vFields.push_back(iCreate(types::field, 
-            (*vFields.begin())->ex, scr_height - 290.0f));
-
+        if (Mario)
+        {
+            if (Mario->state == states::jump_up)
+            {
+                Mario->Jump(jump_target_x, jump_target_y);
+               
+            }
+            else if (Mario->state == states::jump_down)
+            {
+                if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
+                    Mario->Jump(jump_target_x + 100, Mario->old_y);
+                else if (Mario->prev_dir == dirs::left)
+                    Mario->Jump(jump_target_x - 100, Mario->old_y);
+            }
+            else if (Mario->state == states::run)Mario->Move();
+        }
         
+        
+
+        //CLOUDS ********************************************
+
+
+
+        ///////////////////////////////////////////////////
+
+
+
         //DRAW THINGS **********************************
         Draw->BeginDraw();
         Draw->FillRectangle(D2D1::RectF(0, 0, cl_width, 50.0f), ButBckgBrush);
@@ -798,18 +880,29 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 else if (Mario->dir == dirs::left)
                         Draw->DrawBitmap(bmpMarioL[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
                 break;
+
+            case states::stop:
+                if (Mario->dir == dirs::right)
+                    Draw->DrawBitmap(bmpMarioR[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                else if (Mario->dir == dirs::left)
+                    Draw->DrawBitmap(bmpMarioL[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                else if (Mario->dir == dirs::stop && Mario->prev_dir == dirs::left)
+                    Draw->DrawBitmap(bmpMarioL[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                else if (Mario->dir == dirs::stop && Mario->prev_dir == dirs::right)
+                    Draw->DrawBitmap(bmpMarioR[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                break;
             
             case states::jump_up:
-                if (Mario->dir == dirs::right)
+                if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
                     Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::left)
+                else if (Mario->prev_dir == dirs::left)
                     Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
                 break;
 
             case states::jump_down:
-                if (Mario->dir == dirs::right)
+                if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
                     Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::left)
+                else if (Mario->prev_dir == dirs::left)
                     Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
             
             }

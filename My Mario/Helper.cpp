@@ -148,7 +148,7 @@ class FIELD : public INTERFACES
 {
 	public:
 
-		FIELD(float _where_x = 0, float where_y = scr_height - 290.0f) :INTERFACES(_where_x,where_y,1000.0f,290.0f,types::field)
+		FIELD(float _where_x = 0, float where_y = scr_height - 155.0f) :INTERFACES(_where_x,where_y,1000.0f,100.0f,types::field)
 		{
 			speed = 0.5f;
 		}
@@ -383,19 +383,20 @@ class MARIO :public INTERFACES
 {
 	public:
 
-		MARIO() :INTERFACES(100.0f, scr_height - 345.0f, 50.0f, 55.0f, types::mario)
+		MARIO() :INTERFACES(100.0f, scr_height - 155.0f, 50.0f, 55.0f, types::mario)
 		{
 			dir = dirs::right;
 			state = states::stop;
-			speed = 10.0f;
+			speed = 2.0f;
 		}
 
 		return_type Move() override
 		{
+			if (state == states::stop)return return_type::R_IN;
 			switch (dir)
 			{
 			case dirs::left:
-				if (ex - speed >= 0)
+				if (x - speed >= 0)
 				{
 					x -= speed;
 					SetDims();
@@ -403,13 +404,14 @@ class MARIO :public INTERFACES
 				}
 				else
 				{
-					dir = dirs::right;
+					return return_type::R_IN;
 					break;
 				}
+				
 				break;
 
 			case dirs::right:
-				if (x + speed <= scr_width)
+				if (ex + speed <= scr_width)
 				{
 					x += speed;
 					SetDims();
@@ -417,15 +419,16 @@ class MARIO :public INTERFACES
 				}
 				else
 				{
-					dir = dirs::left;
+					return return_type::R_IN;
 					break;
 				}
+				
 				break;
 
 			case dirs::down:
 				y += speed;
 				SetDims();
-				if (ey > scr_height - 290.0f)return return_type::R_OUT;
+				if (ey > scr_height - 155.0f)return return_type::R_OUT;
 				break;
 			}
 			return return_type::R_OUT;
@@ -433,62 +436,77 @@ class MARIO :public INTERFACES
 		
 		return_type Jump(float targ_x, float targ_y) override
 		{
-			if (on_the_floor)
+			static line_graph line_info;
+
+			if (state != states::jump_up && state != states::jump_down)
 			{
 				old_x = x;
 				old_y = y;
 				prev_dir = dir;
-				on_the_floor = false;
+				dir = dirs::up;
 				state = states::jump_up;
+				line_info = GetYFromSlope(targ_x, targ_y);
 			}
-
-			if (dir == dirs::up)
+			else
 			{
-				if (old_y < y + 50.0f) y = GetYFromSlope(targ_x, targ_y);
-
-				if (prev_dir == dirs::right)
-				{	
-					if (old_x < targ_x) x += speed;
-				}
-				else if (prev_dir == dirs::left)
+				if (dir == dirs::up)
 				{
-					if (old_x > targ_x) x -= speed;
-				}
-				SetDims();
-				return return_type::R_IN;
-			}
-			else if (dir == dirs::down)
-			{
-				state = states::jump_down;
-
-				if (y < old_y)
-				{
-					if (prev_dir == dirs::right)
+					if (y > targ_y)
 					{
-						y = GetYFromSlope(x + 50.0f, old_y);
-						if (old_x < targ_x) x += speed;
-						if (y >= old_y)
+						if (prev_dir == dirs::right || prev_dir == dirs::stop)
 						{
-							y = old_y;
-							SetDims();
-							on_the_floor = true;
-							state = states::stop;
-							dir = dirs::stop;
-							return return_type::R_IN;
+							if (old_x < targ_x) x += speed;
 						}
-					}
-					else if (prev_dir == dirs::left)
-					{
-						y = GetYFromSlope(x - 50.0f, old_y);
-						if (old_x > targ_x)x -= speed;
-						if (y >= old_y)
+						else if (prev_dir == dirs::left)
 						{
-							y = old_y;
+							if (old_x > targ_x) x -= speed;
+						}
+
+						y = (line_info.slope * x) + line_info.intercept;
+
+						SetDims();
+						return return_type::R_IN;
+					}
+					else dir = dirs::down;
+				}
+				else if (dir == dirs::down)
+				{
+					state = states::jump_down;
+					line_info = GetYFromSlope(targ_x, old_y);
+
+					if (y < old_y)
+					{
+						if (prev_dir == dirs::right || prev_dir == dirs::stop)
+						{
+
+							if (x < targ_x) x += speed;
+
+							y = (line_info.slope * x) + line_info.intercept;
+
+							if (y >= old_y)
+							{
+								y = old_y;
+								SetDims();
+								state = states::stop;
+								dir = dirs::stop;
+								return return_type::R_IN;
+							}
 							SetDims();
-							on_the_floor = true;
-							state = states::stop;
-							dir = dirs::stop;
-							return return_type::R_IN;
+						}
+						else if (prev_dir == dirs::left)
+						{
+							if (x > targ_x)x -= speed;
+							y = (line_info.slope * x) + line_info.intercept;
+
+							if (y >= old_y)
+							{
+								y = old_y;
+								SetDims();
+								state = states::stop;
+								dir = dirs::stop;
+								return return_type::R_IN;
+							}
+							SetDims();
 						}
 					}
 				}
@@ -568,7 +586,7 @@ class TURTLE :public INTERFACES
 			case dirs::down:
 				y += speed;
 				SetDims();
-				if (ey > scr_height - 290.0f)return return_type::R_OUT;
+				if (ey > scr_height - 155.0f)return return_type::R_OUT;
 				break;
 			}
 			return return_type::R_OUT;
