@@ -131,6 +131,15 @@ float jump_target_x = 0;
 float jump_target_y = 0;
 dirs opposite_dir = dirs::stop;
 
+obj_ptr Cloud1 = nullptr;
+obj_ptr Cloud2 = nullptr;
+std::vector<obj_ptr>vMountains;
+
+bool cloud1_visible = false;
+bool cloud2_visible = false;
+bool mountain1_visible = false;
+bool mountain2_visible = false;
+bool mountain3_visible = false;
 
 ////////////////////////////////////////////
 
@@ -395,6 +404,33 @@ void InitGame()
 
     for (float i = -1000; i < 2000; i += 1000) vFields.push_back(iCreate(types::field, i, scr_height - 100.0f));
     
+    vMountains.clear();
+
+    if (Cloud1)
+    {
+        Cloud1->Release();
+        Cloud1 = nullptr;
+    }
+    if (Cloud2)
+    {
+        Cloud2->Release();
+        Cloud2 = nullptr;
+    }
+    
+    Cloud1 = iCreate(types::cloud1, cl_width + 100.0f, 100);
+    Cloud2 = iCreate(types::cloud2, cl_width + 80.0f, 150);
+    
+    if(Cloud1)
+    { 
+        Cloud1->dir = dirs::left;
+        cloud1_visible = false;
+    }
+    if (Cloud2)
+    {
+        Cloud2->dir = dirs::left;
+        cloud2_visible = false;
+    }
+
 }
 void GameOver()
 {
@@ -796,15 +832,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             vFields.insert(vFields.begin(),iCreate(types::field, tempx, scr_height - 100.0f));
         }
 
-        if (!vFields.empty() && Mario)
-            for (int i = 0; i < vFields.size(); i++)
-            {
-                
-                if (Mario->state == states::stop)opposite_dir = dirs::stop;
-                else if (Mario->dir == dirs::right)opposite_dir = dirs::left;
-                else if (Mario->dir == dirs::left)opposite_dir = dirs::right;
-                vFields[i]->dir = opposite_dir;
-            }
+        if (Mario)
+        {
+            if (Mario->state == states::stop)opposite_dir = dirs::stop;
+            else if (Mario->dir == dirs::right)opposite_dir = dirs::left;
+            else if (Mario->dir == dirs::left)opposite_dir = dirs::right;
+        }
+        
+        if (!vFields.empty())
+            for (int i = 0; i < vFields.size(); i++) vFields[i]->dir = opposite_dir;
+            
 
         //MARIO MOVE ************************************************
 
@@ -829,12 +866,123 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         //CLOUDS ********************************************
 
+        if (Cloud1)
+        {
+            if (Cloud1->x >= 0)
+            {
+                cloud1_visible = true;
+                if(Mario)Cloud1->dir = opposite_dir;
+                if (Cloud1->dir == dirs::stop)Cloud1->dir = dirs::left;
+            }
+            
+            if (Cloud1->Move() == return_type::R_OUT && cloud1_visible)
+            {
+                Cloud1->Release();
+                Cloud1 = nullptr;
+                cloud1_visible = false;
+            }
+        }
+        else Cloud1 = iCreate(types::cloud1, cl_width + 100.0f, 100);
 
+        if (Cloud2)
+        {
+            if (Cloud2->ex <= cl_width)
+            {
+                cloud2_visible = true;
+                Cloud2->dir = opposite_dir;
+                if (Cloud2->dir == dirs::stop)Cloud2->dir = dirs::left;
+            }
+
+            if (Cloud2->Move() == return_type::R_OUT && cloud2_visible)
+            {
+                Cloud2->Release();
+                Cloud2 = nullptr;
+                cloud2_visible = false;
+            }
+        }
+        else Cloud2 = iCreate(types::cloud2, cl_width + 80.0f, 150);
+
+        if (vMountains.size() < 3)
+        {
+            int atype = rand() % 3 + 7;
+            
+            float aheight = 0;
+            float awidth = cl_width + 400 * vMountains.size() + rand() % 80;
+
+            switch (atype)
+            {
+            case 7:
+                aheight = scr_height - 254.0f;
+                break;
+
+            case 8:
+                aheight = scr_height - 279.0f;
+                break;
+
+            case 9:
+                aheight = scr_height - 411.0f;
+                break;
+
+            }
+
+            vMountains.push_back(iCreate(static_cast<types>(atype), awidth, aheight));
+            vMountains.back()->dir = dirs::left;
+        }
+
+        if (!vMountains.empty())
+        {
+            for (std::vector<obj_ptr>::iterator mount = vMountains.begin(); mount < vMountains.end(); mount++)
+            {
+                (*mount)->dir = opposite_dir;
+                return_type check = (*mount)->Move();
+                if ((*mount)->ex <= cl_width && (*mount)->type == types::mountain1)mountain1_visible = true;
+                if ((*mount)->ex <= cl_width && (*mount)->type == types::mountain2)mountain2_visible = true;
+                if ((*mount)->ex <= cl_width && (*mount)->type == types::mountain3)mountain3_visible = true;
+                
+                if ((*mount)->type == types::mountain1 && mountain1_visible && check == return_type::R_OUT)
+                {
+                    int matches = 0;
+                    for(int i=0;i<vMountains.size();i++)
+                    {
+                        if (vMountains[i]->type == types::mountain1)matches++;
+                        if(matches<2)mountain1_visible = false;
+                    }
+                    (*mount)->Release();
+                    vMountains.erase(mount);
+                    break;
+                }
+
+                if ((*mount)->type == types::mountain2 && mountain2_visible && check == return_type::R_OUT)
+                {
+                    int matches = 0;
+                    for (int i = 0; i < vMountains.size(); i++)
+                    {
+                        if (vMountains[i]->type == types::mountain2)matches++;
+                        if (matches < 2)mountain2_visible = false;
+                    }(*mount)->Release();
+                    vMountains.erase(mount);
+                    break;
+                }
+
+                if ((*mount)->type == types::mountain3 && mountain3_visible && check == return_type::R_OUT)
+                {
+                    int matches = 0;
+                    for (int i = 0; i < vMountains.size(); i++)
+                    {
+                        if (vMountains[i]->type == types::mountain3)matches++;
+                        if (matches < 2)mountain3_visible = false;
+                    }(*mount)->Release();
+                    vMountains.erase(mount);
+                    break;
+                }
+
+
+            }
+        }
 
         ///////////////////////////////////////////////////
 
-
-
+       
         //DRAW THINGS **********************************
         Draw->BeginDraw();
         Draw->FillRectangle(D2D1::RectF(0, 0, cl_width, 50.0f), ButBckgBrush);
@@ -865,6 +1013,30 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         else
             Draw->DrawText(L"ПОМОЩ ЗА ИГРАТА", 16, nrmTextFormat, D2D1::RectF(b3Rect.left + 50.0f, 0, b3Rect.right,
                 50.0f), ButTxtBrush);
+
+        if (!vMountains.empty())
+        {
+            for (int i = 0; i < vMountains.size(); ++i)
+            {
+                switch (vMountains[i]->type)
+                {
+                case types::mountain1:
+                    Draw->DrawBitmap(bmpMountain1, D2D1::RectF(vMountains[i]->x, vMountains[i]->y,
+                        vMountains[i]->ex, vMountains[i]->ey));
+                    break;
+
+                case types::mountain2:
+                    Draw->DrawBitmap(bmpMountain2, D2D1::RectF(vMountains[i]->x, vMountains[i]->y,
+                        vMountains[i]->ex, vMountains[i]->ey));
+                    break;
+
+                case types::mountain3:
+                    Draw->DrawBitmap(bmpMountain3, D2D1::RectF(vMountains[i]->x, vMountains[i]->y,
+                        vMountains[i]->ex, vMountains[i]->ey));
+                    break;
+                }
+            }
+        }
 
         if (!vFields.empty())
             for (int i = 0; i < vFields.size(); i++)
@@ -909,8 +1081,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
         ////////////////////////////////////////////////////////
         
-        
-        
+        if (Cloud1)Draw->DrawBitmap(bmpCloud1, D2D1::RectF(Cloud1->x, Cloud1->y, Cloud1->ex, Cloud1->ey));
+        if (Cloud2)Draw->DrawBitmap(bmpCloud2, D2D1::RectF(Cloud2->x, Cloud2->y, Cloud2->ex, Cloud2->ey));
         
         
         
