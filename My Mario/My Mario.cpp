@@ -134,6 +134,7 @@ dirs opposite_dir = dirs::stop;
 obj_ptr Cloud1 = nullptr;
 obj_ptr Cloud2 = nullptr;
 std::vector<obj_ptr>vMountains;
+std::vector<obj_ptr>vPlatforms;
 
 bool cloud1_visible = false;
 bool cloud2_visible = false;
@@ -430,6 +431,8 @@ void InitGame()
         Cloud2->dir = dirs::left;
         cloud2_visible = false;
     }
+
+    vPlatforms.clear();
 
 }
 void GameOver()
