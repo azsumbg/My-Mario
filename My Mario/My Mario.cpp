@@ -136,6 +136,9 @@ obj_ptr Cloud2 = nullptr;
 std::vector<obj_ptr>vMountains;
 std::vector<obj_ptr>vPlatforms;
 
+float base_platform_y = 0;
+
+
 bool cloud1_visible = false;
 bool cloud2_visible = false;
 bool mountain1_visible = false;
@@ -433,6 +436,11 @@ void InitGame()
     }
 
     vPlatforms.clear();
+
+    if (Mario)base_platform_y = Mario->y - 80.0f;
+
+
+    vPlatforms.push_back(iCreate(types::brick, 500.0f, base_platform_y));
 
 }
 void GameOver()
@@ -837,7 +845,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Mario)
         {
-            if (Mario->state == states::stop)opposite_dir = dirs::stop;
+            if (Mario->state == states::stop || Mario->state == states::fall)opposite_dir = dirs::stop;
             else if (Mario->dir == dirs::right)opposite_dir = dirs::left;
             else if (Mario->dir == dirs::left)opposite_dir = dirs::right;
         }
@@ -865,7 +873,69 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else if (Mario->state == states::run)Mario->Move();
         }
         
-        
+        //FALL OR JUMP ON PLATFORM
+        if (Mario && !vPlatforms.empty())
+        {
+            if (Mario->state == states::jump_up || Mario->state == states::jump_down || Mario->state == states::fall)
+            {
+                for (std::vector<obj_ptr>::iterator platform = vPlatforms.begin(); platform < vPlatforms.end(); ++platform)
+                {
+                    if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
+                        || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
+                    {
+                        Mario->state = states::stop;
+                        Mario->dir = dirs::stop;
+                        Mario->x = (*platform)->x;
+                        Mario->y = (*platform)->y - 55.0f;
+                        Mario->SetDims();
+                        break;
+                    }
+                }
+            }
+        }
+
+        //RUNNING ON PLATFORM
+        if (Mario)
+        {
+            if (Mario->state == states::move || Mario->state == states::run || Mario->state == states::stop)
+            {
+                if (Mario->y < scr_height - 155.0f)
+                {
+                    states current_state = Mario->state;
+
+                    Mario->state = states::fall;
+
+                    if (!vPlatforms.empty())
+                    {
+                        for (std::vector<obj_ptr>::iterator platform = vPlatforms.begin(); platform < vPlatforms.end(); ++platform)
+                        {
+                            if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
+                                || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
+                            {
+                                Mario->state = current_state;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        //FREE FALLING
+        if (Mario)
+        {
+            if (Mario->state == states::fall)
+            {
+                Mario->dir = dirs::down;
+                if (Mario->Move() == return_type::R_OUT)
+                {
+                    Mario->y = scr_height - 155.0f;
+                    Mario->SetDims();
+                    Mario->state = states::stop;
+                    Mario->dir = dirs::stop;
+                }
+            }
+        }
 
         //CLOUDS ********************************************
 
@@ -1086,7 +1156,24 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         
         if (Cloud1)Draw->DrawBitmap(bmpCloud1, D2D1::RectF(Cloud1->x, Cloud1->y, Cloud1->ex, Cloud1->ey));
         if (Cloud2)Draw->DrawBitmap(bmpCloud2, D2D1::RectF(Cloud2->x, Cloud2->y, Cloud2->ex, Cloud2->ey));
-        
+        if (!vPlatforms.empty())
+        {
+            for (int i = 0; i < vPlatforms.size();++i)
+            {
+                switch (vPlatforms[i]->type)
+                {
+                case types::brick:
+                    Draw->DrawBitmap(bmpBrick, D2D1::RectF(vPlatforms[i]->x, vPlatforms[i]->y, 
+                        vPlatforms[i]->ex, vPlatforms[i]->ey));
+                    break;
+
+                case types::goldbrick:
+                    Draw->DrawBitmap(bmpGoldBrick, D2D1::RectF(vPlatforms[i]->x, vPlatforms[i]->y,
+                        vPlatforms[i]->ex, vPlatforms[i]->ey));
+                    break;
+                }
+            }
+        }
         
         
         Draw->EndDraw();
