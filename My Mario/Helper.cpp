@@ -80,17 +80,17 @@ public:
 		{
 		case types::mountain1:
 			NewDims(300.0f, 164.0f);
-			speed = 0.3f;
+			speed = 0.8f;
 			break;
 
 		case types::mountain2:
 			NewDims(400.0f, 189.0f);
-			speed = 0.2f;
+			speed = 0.8f;
 			break;
 
 		case types::mountain3:
 			NewDims(400.0f, 351.0f);
-			speed = 0.1f;
+			speed = 0.8f;
 			break;
 		}
 
@@ -150,7 +150,7 @@ class FIELD : public INTERFACES
 
 		FIELD(float _where_x = 0, float where_y = scr_height - 155.0f) :INTERFACES(_where_x,where_y,1000.0f,100.0f,types::field)
 		{
-			speed = 0.5f;
+			speed = 0.8f;
 		}
 		~FIELD() {};
 
