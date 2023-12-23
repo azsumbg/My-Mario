@@ -837,7 +837,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Mario)
         {
-            if (Mario->state == states::stop || Mario->state == states::fall)opposite_dir = dirs::stop;
+            if (Mario->state == states::stop)opposite_dir = dirs::stop;
             else if (Mario->dir == dirs::right)opposite_dir = dirs::left;
             else if (Mario->dir == dirs::left)opposite_dir = dirs::right;
         }
@@ -865,67 +865,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else if (Mario->state == states::run)Mario->Move();
         }
         
-        //FALL OR JUMP ON PLATFORM
-        if (Mario && !vPlatforms.empty())
-        {
-            if (Mario->state == states::jump_up || Mario->state == states::jump_down || Mario->state == states::fall)
-            {
-                for (std::vector<obj_ptr>::iterator platform = vPlatforms.begin(); platform < vPlatforms.end(); ++platform)
-                {
-                    if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
-                        || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
-                    {
-                        Mario->state = states::stop;
-                        Mario->y = (*platform)->y - 55.0f;
-                        Mario->SetDims();
-                        break;
-                    }
-                }
-            }
-        }
-
-        //RUNNING ON PLATFORM
-        if (Mario)
-        {
-            if (Mario->state == states::move || Mario->state == states::run || Mario->state == states::stop)
-            {
-                if (Mario->y < scr_height - 155.0f)
-                {
-                    states current_state = Mario->state;
-
-                    Mario->state = states::fall;
-
-                    if (!vPlatforms.empty())
-                    {
-                        for (std::vector<obj_ptr>::iterator platform = vPlatforms.begin(); platform < vPlatforms.end(); ++platform)
-                        {
-                            if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
-                                || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
-                            {
-                                Mario->state = current_state;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        //FREE FALLING
-        if (Mario)
-        {
-            if (Mario->state == states::fall)
-            {
-                Mario->dir = dirs::down;
-                if (Mario->Move() == return_type::R_OUT)
-                {
-                    Mario->y = scr_height - 155.0f;
-                    Mario->SetDims();
-                    Mario->state = states::stop;
-                    Mario->dir = dirs::stop;
-                }
-            }
-        }
+        
 
         //CLOUDS ********************************************
 
