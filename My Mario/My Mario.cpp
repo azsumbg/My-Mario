@@ -1084,10 +1084,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (base_platform_y >= Mario->y - 80.0f)base_platform_y = Mario->y - 80.0f;
                 
                 vPlatforms.push_back(iCreate(types::brick, nextx, base_platform_y));
-                if (rand() % 30 == 13)
+                if (rand() % 15 == 6)
                     vPlatforms.push_back(iCreate(types::goldbrick, nextx + 60.0f, base_platform_y));
-                else if (rand() % 15 == 13)
-                    vPlatforms.push_back(iCreate(types::brick, nextx + 60.0f, base_platform_y));
+                if (rand() % 5 == 3)
+                    vPlatforms.push_back(iCreate(types::brick, nextx + 120.0f, base_platform_y));
                 platform_rows++;
             }
         }
