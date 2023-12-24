@@ -208,6 +208,7 @@ class COIN :public INTERFACES
 		COIN(float _x, float _y) :INTERFACES(_x, _y, 10.0f, 10.0f, types::coin)
 		{
 			dir = dirs::stop;
+			speed = 0.8f;
 		}
 		~COIN() {};
 
@@ -265,7 +266,8 @@ public:
 
 	BRICKS(float _x, float _y) :INTERFACES(_x, _y, 60.0f, 60.0f, types::brick)
 	{
-		dir = dirs::stop;
+		dir = dirs::left;
+		speed = 0.8f;
 	}
 
 	return_type Move() override
@@ -322,6 +324,70 @@ public:
 	
 };
 
+class GOLDBRICKS :public INTERFACES
+{
+public:
+
+	GOLDBRICKS(float _x, float _y) :INTERFACES(_x, _y, 60.0f, 60.0f, types::goldbrick)
+	{
+		dir = dirs::left;
+		speed = 0.8f;
+	}
+
+	return_type Move() override
+	{
+		switch (dir)
+		{
+		case dirs::left:
+			if (ex - speed >= 0)
+			{
+				x -= speed;
+				SetDims();
+				return return_type::R_IN;
+			}
+			break;
+
+		case dirs::right:
+			if (x + speed <= scr_width)
+			{
+				x += speed;
+				SetDims();
+				return return_type::R_IN;
+			}
+			break;
+
+		default: return return_type::R_NOT_SUPPORTED;
+		}
+		return return_type::R_OUT;
+	}
+
+	return_type Jump(float targ_x = 0, float targ_y = 0) override
+	{
+		return return_type::R_NOT_SUPPORTED;
+	}
+	return_type Transform(types _in_what) override
+	{
+		if (_in_what == types::goldbrick)
+		{
+			type = types::goldbrick;
+			return return_type::R_OK;
+		}
+
+		return return_type::R_NOT_SUPPORTED;
+	}
+
+	int GetFrame() override
+	{
+		return static_cast<int>(return_type::R_NOT_SUPPORTED);
+	}
+
+	void Release() override
+	{
+		delete this;
+	}
+
+};
+
 class MUSHROOM :public INTERFACES
 {
 	public:
@@ -329,6 +395,7 @@ class MUSHROOM :public INTERFACES
 		MUSHROOM(float _x, float _y) :INTERFACES(_x, _y, 40.0f, 40.0f, types::mushroom)
 		{
 			dir = dirs::stop;
+			speed = 0.8f;
 		}
 
 		return_type Move() override
@@ -620,6 +687,64 @@ class TURTLE :public INTERFACES
 		}
 };
 
+class BULLET :public INTERFACES
+{
+public:
+	BULLET(float _x, float _y, dirs _dir) :INTERFACES(_x, _y, 15.0f, 15.0f, types::bullet)
+	{
+		dir = _dir;
+		speed = 1.5f;
+	}
+	~BULLET() {};
+
+	return_type Move() override
+	{
+		switch (dir)
+		{
+		case dirs::left:
+			if (ex - speed >= 0)
+			{
+				x -= speed;
+				SetDims();
+				return return_type::R_IN;
+			}
+			break;
+
+		case dirs::right:
+			if (x + speed <= scr_width)
+			{
+				x += speed;
+				SetDims();
+				return return_type::R_IN;
+			}
+			break;
+
+		default: return return_type::R_NOT_SUPPORTED;
+		}
+		return return_type::R_OUT;
+	}
+
+	return_type Jump(float targ_x = 0, float targ_y = 0) override
+	{
+		return return_type::R_NOT_SUPPORTED;
+	}
+	return_type Transform(types _in_what) override
+	{
+		return return_type::R_NOT_SUPPORTED;
+	}
+
+	int GetFrame() override
+	{
+		return static_cast<int>(return_type::R_NOT_SUPPORTED);
+	}
+
+	void Release() override
+	{
+		delete this;
+	}
+
+};
+
 
 ///////////////////////////////
 obj_ptr iCreate(types _what, float where_x, float where_y)
@@ -660,6 +785,10 @@ obj_ptr iCreate(types _what, float where_x, float where_y)
 		ret = new BRICKS(where_x, where_y);
 		break;
 
+	case types::goldbrick:
+		ret = new GOLDBRICKS(where_x, where_y);
+		break;
+
 	case types::mushroom:
 		ret = new MUSHROOM(where_x, where_y);
 		break;
@@ -670,6 +799,10 @@ obj_ptr iCreate(types _what, float where_x, float where_y)
 
 	case types::turtle:
 		ret = new TURTLE(where_x, where_y);
+		break;
+
+	case types::bullet:
+		ret = new BULLET(where_x, where_y, dirs::right);
 		break;
 	}
 

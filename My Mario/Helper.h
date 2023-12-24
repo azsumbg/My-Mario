@@ -12,7 +12,7 @@ constexpr float scr_height = 739.0f;
 enum class dirs { stop = 0, up = 1, down = 2, left = 3, right = 4 };
 enum class types {
 	no_type = -1, mario = 0, turtle = 1, brick = 2, cloud1 = 3, cloud2 = 4, field = 5, goldbrick = 6,
-	mountain1 = 7, mountain2 = 8, mountain3 = 9, mushroom = 10, coin = 11
+	mountain1 = 7, mountain2 = 8, mountain3 = 9, mushroom = 10, coin = 11, bullet = 12
 };
 enum class return_type { R_OK = 0, R_FAIL = 1, R_NOT_SUPPORTED = 2, R_IN = 3, R_OUT = 4 };
 enum class states { stop = 0, move = 1, jump_up = 2, jump_down = 3, hit = 4, run = 5, fall = 6 };

@@ -113,6 +113,8 @@ ID2D1Bitmap* bmpMountain3 = nullptr;
 ID2D1Bitmap* bmpField = nullptr;
 ID2D1Bitmap* bmpGold = nullptr;
 ID2D1Bitmap* bmpMushroom = nullptr;
+ID2D1Bitmap* bmpSun = nullptr;
+ID2D1Bitmap* bmpBullet = nullptr;
 
 ID2D1Bitmap* bmpMarioL[12];
 ID2D1Bitmap* bmpMarioR[12];
@@ -131,11 +133,15 @@ float jump_target_x = 0;
 float jump_target_y = 0;
 dirs opposite_dir = dirs::stop;
 
+bool Mario_upgraded = false;
+
 obj_ptr Cloud1 = nullptr;
 obj_ptr Cloud2 = nullptr;
+ATOMS* Sun = nullptr;
 std::vector<obj_ptr>vMountains;
 std::vector<obj_ptr>vPlatforms;
 std::vector<obj_ptr>vBenefits;
+std::vector<obj_ptr>vBullets;
 
 float base_platform_y = 0;
 float platform_rows = 0;
@@ -184,6 +190,8 @@ void ReleaseCOM()
     ClearResource(&bmpGold);
     ClearResource(&bmpField);
     ClearResource(&bmpMushroom);
+    ClearResource(&bmpSun);
+    ClearResource(&bmpBullet);
 
     ClearResource(&bmpMarioJL);
     ClearResource(&bmpMarioJR);
@@ -316,6 +324,12 @@ void InitD2D1()
     bmpField = Load(L".\\res\\img\\field\\field.png", Draw);
     if (!bmpField)CreateErrorLog(L"Error creating bmpField");
 
+    bmpSun = Load(L".\\res\\img\\field\\sun.png", Draw);
+    if (!bmpSun)CreateErrorLog(L"Error creating bmpSun");
+
+    bmpBullet = Load(L".\\res\\img\\field\\bullet.png", Draw);
+    if (!bmpBullet)CreateErrorLog(L"Error creating bmpFBullet");
+
     bmpMarioJL = Load(L".\\res\\img\\mario\\mario_jumpl.png", Draw);
     if (!bmpMarioJL)CreateErrorLog(L"Error creating bmpMarioJL");
 
@@ -407,11 +421,13 @@ void InitGame()
         Mario->state = states::run;
     }
 
+    Mario_upgraded = false;
     for (float i = -1000; i < 2000; i += 1000) vFields.push_back(iCreate(types::field, i, scr_height - 100.0f));
     
     vMountains.clear();
     vBenefits.clear();
     vPlatforms.clear();
+    vBullets.clear();
 
     if (Cloud1)
     {
@@ -444,6 +460,7 @@ void InitGame()
     vPlatforms.push_back(iCreate(types::brick, 560.0f, base_platform_y));
     platform_rows = 1;
 
+    Sun = new ATOMS(500.0f, 100.0f, 100.0f, 100.0f);
 }
 void GameOver()
 {
@@ -706,19 +723,35 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 if (Mario->state == states::jump_up || Mario->state == states::jump_down)break;
                 if (Mario->dir == dirs::right)
                 {
-                    jump_target_x = Mario->x + 100.0f;
-                    jump_target_y = Mario->y - 150.0f;
+                    jump_target_x = Mario->x + 80.0f;
+                    jump_target_y = Mario->y - 130.0f;
                     Mario->Jump(jump_target_x, jump_target_y);
 
                 }
                 else if (Mario->dir == dirs::left)
                 {
-                    jump_target_x = Mario->x - 100.0f;
-                    jump_target_y = Mario->y - 150.0f;
+                    jump_target_x = Mario->x - 80.0f;
+                    jump_target_y = Mario->y - 130.0f;
                     Mario->Jump(jump_target_x, jump_target_y);
                 }
             }
             break;
+
+        case VK_CONTROL:
+            if (!Mario_upgraded)break;
+            if (Mario)
+            {
+                if (Mario->dir == dirs::left)
+                {
+                    vBullets.push_back(iCreate(types::bullet, Mario->x, Mario->y + 20.0f));
+                    vBullets.back()->dir = dirs::left;
+                }
+                else if (Mario->dir == dirs::right)
+                {
+                    vBullets.push_back(iCreate(types::bullet, Mario->ex, Mario->y + 20.0f));
+                    vBullets.back()->dir = dirs::right;
+                }
+            }
         }
         break;
 
@@ -885,6 +918,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             if (Mario->x > cl_width && (Mario->state == states::run || Mario->state == states::stop))
             {
                 Mario->x = cl_width - 50.0f;
+                Mario->SetDims();
+            }
+
+            if (Mario->x < 0 && (Mario->state == states::run || Mario->state == states::stop))
+            {
+                Mario->x = 0;
                 Mario->SetDims();
             }
         }
@@ -1127,7 +1166,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-       
+        if (!vBullets.empty())
+        {
+            for (std::vector<obj_ptr>::iterator bul = vBullets.begin(); bul < vBullets.end(); ++bul)
+            {
+                if ((*bul)->Move() == return_type::R_OUT)
+                {
+                    (*bul)->Release();
+                    vBullets.erase(bul);
+                    break;
+                }
+            }
+
+        }
         //DRAW THINGS **********************************
         Draw->BeginDraw();
         Draw->FillRectangle(D2D1::RectF(0, 0, cl_width, 50.0f), ButBckgBrush);
@@ -1158,6 +1209,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         else
             Draw->DrawText(L"ПОМОЩ ЗА ИГРАТА", 16, nrmTextFormat, D2D1::RectF(b3Rect.left + 50.0f, 0, b3Rect.right,
                 50.0f), ButTxtBrush);
+
+        if (Sun)
+            Draw->DrawBitmap(bmpSun, D2D1::RectF(Sun->x, Sun->y, Sun->ex, Sun->ey));
 
         if (!vMountains.empty())
         {
@@ -1276,6 +1330,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     break;
                 }
             }
+        }
+
+        if (!vBullets.empty())
+        {
+            for (int i = 0; i < vBullets.size(); i++)
+                Draw->DrawBitmap(bmpBullet, D2D1::RectF(vBullets[i]->x, vBullets[i]->y, vBullets[i]->ex, vBullets[i]->ey));
         }
         ////////////////////////////////////////////////////////
         
