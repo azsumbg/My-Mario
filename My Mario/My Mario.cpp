@@ -135,6 +135,7 @@ obj_ptr Cloud1 = nullptr;
 obj_ptr Cloud2 = nullptr;
 std::vector<obj_ptr>vMountains;
 std::vector<obj_ptr>vPlatforms;
+std::vector<obj_ptr>vBenefits;
 
 float base_platform_y = 0;
 float platform_rows = 0;
@@ -409,6 +410,8 @@ void InitGame()
     for (float i = -1000; i < 2000; i += 1000) vFields.push_back(iCreate(types::field, i, scr_height - 100.0f));
     
     vMountains.clear();
+    vBenefits.clear();
+    vPlatforms.clear();
 
     if (Cloud1)
     {
@@ -435,10 +438,7 @@ void InitGame()
         cloud2_visible = false;
     }
 
-    vPlatforms.clear();
-
     if (Mario)base_platform_y = Mario->y - 80.0f;
-
 
     vPlatforms.push_back(iCreate(types::brick, 500.0f, base_platform_y));
     vPlatforms.push_back(iCreate(types::brick, 560.0f, base_platform_y));
@@ -453,6 +453,7 @@ void GameOver()
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
 }
+
 
 ////////////////////////////////////////////////////////////
 
@@ -856,7 +857,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         if (!vFields.empty())
             for (int i = 0; i < vFields.size(); i++) vFields[i]->dir = opposite_dir;
             
-
         //MARIO MOVE ************************************************
 
         if (Mario)
@@ -893,7 +893,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
                         || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
                     {
-                       
+                        if (Mario->state == states::jump_up && Mario->x > (*platform)->x && Mario->x < (*platform)->ex - 10.0f)
+                        {
+                            if ((*platform)->type == types::goldbrick)
+                            {
+                                (*platform)->Transform(types::brick);
+                                if (rand() % 5 == 3)
+                                    vBenefits.push_back(iCreate(types::mushroom, (*platform)->x + 10.0f, (*platform)->y - 40.0f));
+                                else
+                                    vBenefits.push_back(iCreate(types::coin, (*platform)->x + 25.0f, (*platform)->y - 20.0f));
+                            }
+                            Mario->state = states::fall;
+                            break;
+                        }
+                        
                         Mario->state = states::run;
                         Mario->dir = Mario->prev_dir;
                         Mario->x = (*platform)->x;
@@ -1223,14 +1236,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
             }
         }
+
+        if (!vBenefits.empty())
+        {
+            for (int i = 0; i < vBenefits.size(); i++)
+            {
+                switch (vBenefits[i]->type)
+                {
+                case types::mushroom:
+                    Draw->DrawBitmap(bmpMushroom, 
+                        D2D1::RectF(vBenefits[i]->x, vBenefits[i]->y, vBenefits[i]->ex, vBenefits[i]->ey));
+                    break;
+
+                case types::coin:
+                    Draw->DrawBitmap(bmpGold,
+                        D2D1::RectF(vBenefits[i]->x, vBenefits[i]->y, vBenefits[i]->ex, vBenefits[i]->ey));
+                    break;
+                }
+            }
+        }
         ////////////////////////////////////////////////////////
         
         if (Cloud1)Draw->DrawBitmap(bmpCloud1, D2D1::RectF(Cloud1->x, Cloud1->y, Cloud1->ex, Cloud1->ey));
         if (Cloud2)Draw->DrawBitmap(bmpCloud2, D2D1::RectF(Cloud2->x, Cloud2->y, Cloud2->ex, Cloud2->ey));
         
-        
         Draw->EndDraw();
-
+        
     }
 
     std::remove(temp_file);
