@@ -881,6 +881,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     Mario->dir = dirs::stop;
                 }
             }
+
+            if (Mario->x > cl_width && (Mario->state == states::run || Mario->state == states::stop))
+            {
+                Mario->x = cl_width - 50.0f;
+                Mario->SetDims();
+            }
         }
         
         //FALL OR JUMP ON PLATFORM
@@ -902,6 +908,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                     vBenefits.push_back(iCreate(types::mushroom, (*platform)->x + 10.0f, (*platform)->y - 40.0f));
                                 else
                                     vBenefits.push_back(iCreate(types::coin, (*platform)->x + 25.0f, (*platform)->y - 20.0f));
+                                
+                                vBenefits.back()->dir = dirs::left;
                             }
                             Mario->state = states::fall;
                             break;
@@ -1097,11 +1105,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (base_platform_y >= Mario->y - 80.0f)base_platform_y = Mario->y - 80.0f;
                 
                 vPlatforms.push_back(iCreate(types::brick, nextx, base_platform_y));
-                if (rand() % 15 == 6)
+                if (rand() % 10 == 4)
                     vPlatforms.push_back(iCreate(types::goldbrick, nextx + 60.0f, base_platform_y));
                 if (rand() % 5 == 3)
                     vPlatforms.push_back(iCreate(types::brick, nextx + 120.0f, base_platform_y));
                 platform_rows++;
+            }
+        }
+
+        if (!vBenefits.empty())
+        {
+            for (std::vector<obj_ptr>::iterator ben = vBenefits.begin(); ben < vBenefits.end(); ben++)
+            {
+                (*ben)->dir = opposite_dir;
+                if ((*ben)->dir == dirs::left && (*ben)->Move() == return_type::R_OUT)
+                {
+                    (*ben)->Release();
+                    vBenefits.erase(ben);
+                    break;
+                }
             }
         }
 
