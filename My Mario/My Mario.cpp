@@ -115,6 +115,7 @@ ID2D1Bitmap* bmpGold = nullptr;
 ID2D1Bitmap* bmpMushroom = nullptr;
 ID2D1Bitmap* bmpSun = nullptr;
 ID2D1Bitmap* bmpBullet = nullptr;
+ID2D1Bitmap* bmpAngry = nullptr;
 
 ID2D1Bitmap* bmpMarioL[12];
 ID2D1Bitmap* bmpMarioR[12];
@@ -142,12 +143,11 @@ std::vector<obj_ptr>vMountains;
 std::vector<obj_ptr>vPlatforms;
 std::vector<obj_ptr>vBenefits;
 std::vector<obj_ptr>vBullets;
+std::vector<obj_ptr>vTurtles;
 
 float base_platform_y = 0;
 float platform_rows = 0;
 
-bool cloud1_visible = false;
-bool cloud2_visible = false;
 bool mountain1_visible = false;
 bool mountain2_visible = false;
 bool mountain3_visible = false;
@@ -192,6 +192,7 @@ void ReleaseCOM()
     ClearResource(&bmpMushroom);
     ClearResource(&bmpSun);
     ClearResource(&bmpBullet);
+    ClearResource(&bmpAngry);
 
     ClearResource(&bmpMarioJL);
     ClearResource(&bmpMarioJR);
@@ -328,7 +329,10 @@ void InitD2D1()
     if (!bmpSun)CreateErrorLog(L"Error creating bmpSun");
 
     bmpBullet = Load(L".\\res\\img\\field\\bullet.png", Draw);
-    if (!bmpBullet)CreateErrorLog(L"Error creating bmpFBullet");
+    if (!bmpBullet)CreateErrorLog(L"Error creating bmpBullet");
+
+    bmpAngry = Load(L".\\res\\img\\mario\\angry.png", Draw);
+    if (!bmpAngry)CreateErrorLog(L"Error creating bmpAngry");
 
     bmpMarioJL = Load(L".\\res\\img\\mario\\mario_jumpl.png", Draw);
     if (!bmpMarioJL)CreateErrorLog(L"Error creating bmpMarioJL");
@@ -428,6 +432,7 @@ void InitGame()
     vBenefits.clear();
     vPlatforms.clear();
     vBullets.clear();
+    vTurtles.clear();
 
     if (Cloud1)
     {
@@ -440,19 +445,13 @@ void InitGame()
         Cloud2 = nullptr;
     }
     
-    Cloud1 = iCreate(types::cloud1, cl_width + 100.0f, 100);
-    Cloud2 = iCreate(types::cloud2, cl_width + 80.0f, 150);
+    Cloud1 = iCreate(types::cloud1, 300.0f, 80 + (float)(rand() % 20));
+    Cloud2 = iCreate(types::cloud2, 500.0f, 120 + (float)(rand() % 20));
     
-    if(Cloud1)
-    { 
-        Cloud1->dir = dirs::left;
-        cloud1_visible = false;
-    }
-    if (Cloud2)
-    {
-        Cloud2->dir = dirs::left;
-        cloud2_visible = false;
-    }
+    if(Cloud1) Cloud1->dir = dirs::left;
+       
+    if (Cloud2) Cloud2->dir = dirs::left;
+        
 
     if (Mario)base_platform_y = Mario->y - 80.0f;
 
@@ -470,7 +469,6 @@ void GameOver()
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
 }
-
 
 ////////////////////////////////////////////////////////////
 
@@ -871,15 +869,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (!vFields.empty() && vFields.size() < 2)
+        if (!vFields.empty() &&vFields.size() < 2)
         {
             float tempx = (*vFields.begin())->x - 1000.0f;
 
             vFields.push_back(iCreate(types::field,
                 (*vFields.begin())->ex, scr_height - 100.0f));
-            vFields.insert(vFields.begin(),iCreate(types::field, tempx, scr_height - 100.0f));
-        }
-
+            vFields.insert(vFields.begin(),iCreate(types::field, tempx, scr_height - 110.0f));
+        }        
         if (Mario)
         {
             if (Mario->state == states::stop || Mario->state == states::fall)opposite_dir = dirs::stop;
@@ -954,7 +951,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             break;
                         }
                         
-                        Mario->state = states::run;
+                        Mario->state = states::stop;
+                        Mario->dir = dirs::stop;
                         Mario->dir = Mario->prev_dir;
                         Mario->x = (*platform)->x;
                         Mario->y = (*platform)->y - 55.0f;
@@ -999,39 +997,38 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Cloud1)
         {
-            if (Cloud1->x >= 0)
+            if (Cloud1)
             {
-                cloud1_visible = true;
                 if(Mario)Cloud1->dir = opposite_dir;
                 if (Cloud1->dir == dirs::stop)Cloud1->dir = dirs::left;
             }
             
-            if (Cloud1->Move() == return_type::R_OUT && cloud1_visible)
+            if (Cloud1->Move() == return_type::R_OUT && ((Cloud1->ex<=0&&Cloud1->dir==dirs::left)
+                || (Cloud1->x >= cl_width && Cloud1->dir == dirs::right)))
             {
                 Cloud1->Release();
                 Cloud1 = nullptr;
-                cloud1_visible = false;
             }
         }
-        else Cloud1 = iCreate(types::cloud1, cl_width + 100.0f, 100);
+        else Cloud1 = iCreate(types::cloud1, cl_width + 300.0f, 80 + (float)(rand() % 20));
 
         if (Cloud2)
         {
-            if (Cloud2->ex <= cl_width)
+            if (Cloud2)
             {
-                cloud2_visible = true;
                 Cloud2->dir = opposite_dir;
                 if (Cloud2->dir == dirs::stop)Cloud2->dir = dirs::left;
             }
 
-            if (Cloud2->Move() == return_type::R_OUT && cloud2_visible)
+            if (Cloud2->Move() == return_type::R_OUT && ((Cloud2->ex <= 0 && Cloud2->dir == dirs::left)
+                || (Cloud2->x >= cl_width && Cloud2->dir == dirs::right)))
             {
                 Cloud2->Release();
                 Cloud2 = nullptr;
-                cloud2_visible = false;
+                
             }
         }
-        else Cloud2 = iCreate(types::cloud2, cl_width + 80.0f, 150);
+        else Cloud2 = iCreate(types::cloud2, 500.0f, 120 + (float)(rand() % 20));
 
         if (vMountains.size() < 3)
         {
@@ -1179,6 +1176,38 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
 
         }
+
+        if (!vBenefits.empty() && Mario)
+        {
+            for (std::vector<obj_ptr>::iterator ben = vBenefits.begin(); ben < vBenefits.end(); ++ben)
+            {
+                if (!(Mario->x >= (*ben)->ex || Mario->ex <= (*ben)->x || Mario->y >= (*ben)->ey || Mario->ey <= (*ben)->y))
+                {
+                    if ((*ben)->type == types::coin)score += 50;
+                    else if ((*ben)->type == types::mushroom)
+                    {
+                        if (!Mario_upgraded)Mario_upgraded = true;
+                        else score += 100;
+                    }
+                    (*ben)->Release();
+                    vBenefits.erase(ben);
+                    break;
+                }
+            }
+        }
+
+        if (rand() % 1000 == 66 && vTurtles.size() <= 4)
+            vTurtles.push_back(iCreate(types::turtle, cl_width, cl_height - 140.0f));
+        
+        if (!vTurtles.empty())
+        {
+            for (int i = 0; i < vTurtles.size(); i++)
+            {
+                if (vTurtles[i]->type == types::turtle) vTurtles[i]->Move();
+                
+            }
+        }
+
         //DRAW THINGS **********************************
         Draw->BeginDraw();
         Draw->FillRectangle(D2D1::RectF(0, 0, cl_width, 50.0f), ButBckgBrush);
@@ -1313,6 +1342,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Mario && Mario_upgraded)
+            Draw->DrawBitmap(bmpAngry, D2D1::RectF(Mario->x + 20.0f, Mario->y - 22.0f, Mario->x + 35.0f, Mario->y));
+
         if (!vBenefits.empty())
         {
             for (int i = 0; i < vBenefits.size(); i++)
@@ -1336,6 +1368,30 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             for (int i = 0; i < vBullets.size(); i++)
                 Draw->DrawBitmap(bmpBullet, D2D1::RectF(vBullets[i]->x, vBullets[i]->y, vBullets[i]->ex, vBullets[i]->ey));
+        }
+
+        if (!vTurtles.empty())
+        {
+            for (int i = 0; i < vTurtles.size(); i++)
+            {
+                switch (vTurtles[i]->type)
+                {
+                case types::turtle:
+                    if (vTurtles[i]->dir == dirs::left)
+                        Draw->DrawBitmap(bmpTurtleL[vTurtles[i]->GetFrame()],
+                            D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
+                    if (vTurtles[i]->dir == dirs::right)
+                        Draw->DrawBitmap(bmpTurtleR[vTurtles[i]->GetFrame()],
+                            D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
+                    break;
+
+
+                case types::turtle_blocked:
+                    Draw->DrawBitmap(bmpTurtleBlocked, 
+                        D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
+                    break;
+                }
+            }
         }
         ////////////////////////////////////////////////////////
         

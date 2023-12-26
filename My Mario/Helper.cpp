@@ -614,6 +614,7 @@ class TURTLE :public INTERFACES
 			dir = dirs::left;
 			state = states::move;
 			speed = 1.0f;
+			type = types::turtle;
 		}
 
 		~TURTLE() {};
@@ -666,7 +667,23 @@ class TURTLE :public INTERFACES
 
 		return_type Transform(types _in_what) override
 		{
-			return return_type::R_NOT_SUPPORTED;
+			if (type == types::turtle)
+			{ 44 
+				type = types::turtle_blocked;
+				NewDims(60.0f, 50.0f);
+				y += 30.0f;
+				SetDims();
+				return return_type::R_OK;
+			}
+			else if (type == types::turtle_blocked)
+			{
+				type = types::turtle;
+				NewDims(64.0f, 80.0f);
+				y -= 30.0f;
+				SetDims();
+				return return_type::R_OK;
+			}
+			return return_type::R_FAIL;
 		}
 
 		int GetFrame() override
@@ -693,7 +710,7 @@ public:
 	BULLET(float _x, float _y, dirs _dir) :INTERFACES(_x, _y, 15.0f, 15.0f, types::bullet)
 	{
 		dir = _dir;
-		speed = 1.5f;
+		speed = 5.0f;
 	}
 	~BULLET() {};
 
