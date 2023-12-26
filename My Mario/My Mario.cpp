@@ -875,7 +875,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
             vFields.push_back(iCreate(types::field,
                 (*vFields.begin())->ex, scr_height - 100.0f));
-            vFields.insert(vFields.begin(),iCreate(types::field, tempx, scr_height - 110.0f));
+            vFields.insert(vFields.begin(),iCreate(types::field, tempx, scr_height - 100.0f));
         }        
         if (Mario)
         {
@@ -964,6 +964,37 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Mario && (Mario->state == states::jump_down || Mario->state == states::fall) && !vTurtles.empty())
+        {
+            for (std::vector<obj_ptr>::iterator tur = vTurtles.begin(); tur < vTurtles.end(); ++tur)
+            {
+                if (!(Mario->x >= (*tur)->ex || Mario->ex <= (*tur)->x || Mario->y >= (*tur)->ey || Mario->ey <= (*tur)->y))
+                {
+                    if (Mario->prev_dir == dirs::right)
+                    {
+                        jump_target_x = Mario->x + 80.0f;
+                        jump_target_y = Mario->y - 130.0f;
+                        Mario->state = states::stop;
+                        Mario->dir = dirs::right;
+                        Mario->Jump(jump_target_x, jump_target_y);
+
+                    }
+                    else if (Mario->prev_dir == dirs::left)
+                    {
+                        jump_target_x = Mario->x - 80.0f;
+                        jump_target_y = Mario->y - 130.0f;
+                        Mario->state = states::stop;
+                        Mario->dir = dirs::left;
+                        Mario->Jump(jump_target_x, jump_target_y);
+                    }
+
+                    (*tur)->Transform(types::turtle_blocked);
+                    break;
+                }
+
+            }
+        }
+
         //RUNNING ON PLATFORM
         if (Mario)
         {
@@ -992,7 +1023,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
             }
         }
-
+        
         //CLOUDS ********************************************
 
         if (Cloud1)
@@ -1196,7 +1227,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (rand() % 1000 == 66 && vTurtles.size() <= 4)
+        if (rand() % 500 == 66 && vTurtles.size() <= 4)
             vTurtles.push_back(iCreate(types::turtle, cl_width, cl_height - 140.0f));
         
         if (!vTurtles.empty())
@@ -1204,7 +1235,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (int i = 0; i < vTurtles.size(); i++)
             {
                 if (vTurtles[i]->type == types::turtle) vTurtles[i]->Move();
-                
+                else
+                {
+                    if (opposite_dir == dirs::left)
+                    {
+                        vTurtles[i]->x -= 0.8f;
+                        vTurtles[i]->SetDims();
+                    }
+                    else if (opposite_dir == dirs::right)
+                    {
+                        vTurtles[i]->x += 0.8f;
+                        vTurtles[i]->SetDims();
+                    }
+                }
+                if (Mario)
+                {
+                    if (!(Mario->x >= vTurtles[i]->ex || Mario->ex <= vTurtles[i]->x
+                        || Mario->y >= vTurtles[i]->ey || Mario->ey <= vTurtles[i]->y))
+                    {
+                        if (vTurtles[i]->type == types::turtle)
+                        {
+                            if (Mario_upgraded)Mario_upgraded = false;
+                            else if (Mario->state != states::jump_down && Mario->state != states::fall) GameOver();
+                            
+                        }
+                    }
+                }
             }
         }
 
