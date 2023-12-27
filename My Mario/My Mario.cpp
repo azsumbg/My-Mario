@@ -80,6 +80,7 @@ float cl_width = 0;
 int seconds = 0;
 int minutes = 0;
 int score = 0;
+int lifes = 3;
 
 D2D1_RECT_F b1Rect = { 0,0,250.0f,50.0f };
 D2D1_RECT_F b2Rect = { 350,0,600.0f,50.0f };
@@ -412,6 +413,8 @@ void InitGame()
     name_set = false;
     score = 0;
     seconds = 0;
+    lifes = 3;
+
     vFields.clear();
     if (Mario)
     {
@@ -898,6 +901,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     Mario->Jump(jump_target_x + 100, Mario->old_y);
                 else if (Mario->prev_dir == dirs::left)
                     Mario->Jump(jump_target_x - 100, Mario->old_y);
+                else (Mario->state = states::fall);
+                
             }
             else if (Mario->state == states::run)
             {
@@ -991,7 +996,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         Mario->dir = dirs::left;
                         Mario->Jump(jump_target_x, jump_target_y);
                     }
-
+                    else Mario->state = states::fall;
+                    
                     if ((*tur)->type == types::turtle)
                         (*tur)->Transform(types::turtle_blocked);
                     else
@@ -1004,7 +1010,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (Mario && !vTurtles.empty() && Mario->state == states::run)
+        if (Mario && !vTurtles.empty() && (Mario->state == states::run || Mario->state == states::stop))
         {
             for (std::vector<obj_ptr>::iterator tur = vTurtles.begin(); tur < vTurtles.end(); ++tur)
             {
@@ -1053,6 +1059,35 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
             }
         }
+
+        if (vTurtles.size() > 1)
+        {
+            for (std::vector<obj_ptr>::iterator allturtles = vTurtles.begin(); allturtles < vTurtles.end(); ++allturtles)
+            {
+                bool killed = false;
+                if ((*allturtles)->state == states::hit)
+                {
+                    for (std::vector<obj_ptr>::iterator aturtle = vTurtles.begin(); aturtle < vTurtles.end(); ++aturtle)
+                    {
+                        if (allturtles == aturtle)continue;
+
+                        if (!((*allturtles)->x >= (*aturtle)->ex || (*allturtles)->ex <= (*aturtle)->x
+                            || (*allturtles)->y >= (*aturtle)->ey || (*allturtles)->ey <= (*aturtle)->y))
+                        {
+                            if ((*aturtle)->type == types::turtle_blocked)continue;
+                            (*aturtle)->Transform(types::turtle_blocked);
+                            (*allturtles)->Release();
+                            vTurtles.erase(allturtles);
+                            score += 50;
+                            killed = true;
+                            break;
+                        }
+                    }
+                }
+                if (killed)break;
+            }
+        }
+
 
         //RUNNING ON PLATFORM
         if (Mario)
@@ -1279,7 +1314,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     else if ((*ben)->type == types::mushroom)
                     {
                         if (!Mario_upgraded)Mario_upgraded = true;
-                        else score += 100;
+                        else
+                        {
+                            lifes++;
+                            score += 100;
+                        }
                     }
                     (*ben)->Release();
                     vBenefits.erase(ben);
@@ -1317,7 +1356,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         if (vTurtles[i]->type == types::turtle)
                         {
                             if (Mario_upgraded)Mario_upgraded = false;
-                            else if (Mario->state != states::jump_down && Mario->state != states::fall) GameOver();
+                            else if (Mario->state != states::jump_down && Mario->state != states::fall) lifes--;
                             
                         }
                     }
