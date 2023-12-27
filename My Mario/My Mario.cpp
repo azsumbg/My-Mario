@@ -117,6 +117,7 @@ ID2D1Bitmap* bmpMushroom = nullptr;
 ID2D1Bitmap* bmpSun = nullptr;
 ID2D1Bitmap* bmpBullet = nullptr;
 ID2D1Bitmap* bmpAngry = nullptr;
+ID2D1Bitmap* bmpPortal = nullptr;
 
 ID2D1Bitmap* bmpMarioL[12];
 ID2D1Bitmap* bmpMarioR[12];
@@ -136,10 +137,12 @@ float jump_target_y = 0;
 dirs opposite_dir = dirs::stop;
 
 bool Mario_upgraded = false;
+bool game_win = false;
 
 obj_ptr Cloud1 = nullptr;
 obj_ptr Cloud2 = nullptr;
 ATOMS* Sun = nullptr;
+ATOMS* Portal = nullptr;
 std::vector<obj_ptr>vMountains;
 std::vector<obj_ptr>vPlatforms;
 std::vector<obj_ptr>vBenefits;
@@ -194,6 +197,7 @@ void ReleaseCOM()
     ClearResource(&bmpSun);
     ClearResource(&bmpBullet);
     ClearResource(&bmpAngry);
+    ClearResource(&bmpPortal);
 
     ClearResource(&bmpMarioJL);
     ClearResource(&bmpMarioJR);
@@ -332,6 +336,9 @@ void InitD2D1()
     bmpBullet = Load(L".\\res\\img\\field\\bullet.png", Draw);
     if (!bmpBullet)CreateErrorLog(L"Error creating bmpBullet");
 
+    bmpPortal = Load(L".\\res\\img\\field\\portal.png", Draw);
+    if (!bmpPortal)CreateErrorLog(L"Error creating bmpPortal");
+
     bmpAngry = Load(L".\\res\\img\\mario\\angry.png", Draw);
     if (!bmpAngry)CreateErrorLog(L"Error creating bmpAngry");
 
@@ -414,6 +421,7 @@ void InitGame()
     score = 0;
     seconds = 0;
     lifes = 3;
+    game_win = false;
 
     vFields.clear();
     if (Mario)
@@ -462,7 +470,11 @@ void InitGame()
     vPlatforms.push_back(iCreate(types::brick, 560.0f, base_platform_y));
     platform_rows = 1;
 
+    if (Sun) Sun->Release();
     Sun = new ATOMS(500.0f, 100.0f, 100.0f, 100.0f);
+
+    if (Portal)Portal->Release();
+    Portal = new ATOMS(5000.0f, scr_width - 200.0f, 100.0f, 100.0f);
 }
 void GameOver()
 {
@@ -901,7 +913,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     Mario->Jump(jump_target_x + 100, Mario->old_y);
                 else if (Mario->prev_dir == dirs::left)
                     Mario->Jump(jump_target_x - 100, Mario->old_y);
-                else (Mario->state = states::fall);
+                else Mario->state = states::fall;
+                
                 
             }
             else if (Mario->state == states::run)
@@ -916,7 +929,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 {
                     Mario->y = scr_height - 155.0f;
                     Mario->SetDims();
-                    Mario->state = states::move;
+                    Mario->state = states::run;
                     Mario->dir = Mario->prev_dir;
                 }
             }
@@ -937,14 +950,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         //FALL OR JUMP ON PLATFORM
         if (Mario && !vPlatforms.empty())
         {
-            if (Mario->state == states::jump_up || Mario->state == states::jump_down || Mario->state == states::fall)
+            if (Mario->state == states::jump_up)
             {
                 for (std::vector<obj_ptr>::iterator platform = vPlatforms.begin(); platform < vPlatforms.end(); ++platform)
                 {
                     if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
                         || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
                     {
-                        if (Mario->state == states::jump_up && Mario->x > (*platform)->x && Mario->x < (*platform)->ex - 10.0f)
+                        if (Mario->state == states::jump_up && Mario->x + 5.0f > (*platform)->x && Mario->x < (*platform)->ex - 5.0f)
                         {
                             if ((*platform)->type == types::goldbrick)
                             {
@@ -960,12 +973,35 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             
                             break;
                         }
-                        
+                        else
+                        {
+                            Mario->state = states::stop;
+                            Mario->dir = Mario->prev_dir;
+                            Mario->x = (*platform)->x;
+                            Mario->y = (*platform)->y - 55.0f;
+
+                            Mario->SetDims();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (Mario && !vPlatforms.empty())
+        {
+            if (Mario->state == states::jump_down || Mario->state == states::fall)
+            {
+                for (std::vector<obj_ptr>::iterator platform = vPlatforms.begin(); platform < vPlatforms.end(); ++platform)
+                {
+                    if (!(Mario->x >= (*platform)->ex || Mario->ex <= (*platform)->x
+                        || Mario->y >= (*platform)->ey || Mario->ey <= (*platform)->y))
+                    {
+                        if (Mario->state == states::fall && Mario->y > (*platform)->y)break;
                         Mario->state = states::stop;
                         Mario->dir = Mario->prev_dir;
                         Mario->x = (*platform)->x;
                         Mario->y = (*platform)->y - 55.0f;
-                        
                         Mario->SetDims();
                         break;
                     }
@@ -1364,6 +1400,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Portal && Mario)
+        {
+            if (Mario->dir == dirs::right)
+            {
+                Portal->x += 0.8f;
+                Portal->SetDims();
+            }
+            else if (Mario->dir == dirs::left)
+            {
+                Portal->x -= 0.8f;
+                Portal->SetDims();
+            }
+
+            if (!(Mario->x >= Portal->ex || Mario->ex +20.0f <= Portal->x || Mario->y >= Portal->ey || Mario->ey <= Portal->y))
+            {
+                game_win=true;
+                GameOver();
+            }
+        }
+
+
         //DRAW THINGS **********************************
         Draw->BeginDraw();
         Draw->FillRectangle(D2D1::RectF(0, 0, cl_width, 50.0f), ButBckgBrush);
@@ -1549,6 +1606,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
             }
         }
+
+        if (!vTurtles.empty() && !vBullets.empty())
+        {
+            for (std::vector<obj_ptr>::iterator bul = vBullets.begin(); bul < vBullets.end(); ++bul)
+            {
+                bool killed = false;
+
+                for (std::vector<obj_ptr>::iterator tur = vTurtles.begin(); tur < vTurtles.end(); ++tur)
+                {
+                    if (!((*bul)->x >= (*tur)->ex || (*bul)->ex <= (*tur)->x || (*bul)->y >= (*tur)->ey || (*bul)->ey <= (*tur)->y))
+                    {
+                        score += 50;
+                        killed = true;
+                        (*bul)->Release();
+                        (*tur)->Release();
+                        vBullets.erase(bul);
+                        vTurtles.erase(tur);
+
+                    }
+                }
+                if (killed)break;
+            }
+        }
+
+        if (Portal && Portal->x <= cl_width)Draw->DrawBitmap(bmpPortal, D2D1::RectF(Portal->x, Portal->y, Portal->ex, Portal->ey));
         ////////////////////////////////////////////////////////
         
         if (Cloud1)Draw->DrawBitmap(bmpCloud1, D2D1::RectF(Cloud1->x, Cloud1->y, Cloud1->ex, Cloud1->ey));
