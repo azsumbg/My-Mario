@@ -251,7 +251,7 @@ void InitD2D1()
     if (hr != S_OK) CreateErrorLog(L"Error creating D2D1 bigTextFormat");
 
     hr = iWriteFactory->CreateTextFormat(L"Gabriola", NULL, DWRITE_FONT_WEIGHT_EXTRA_BOLD, DWRITE_FONT_STYLE_OBLIQUE,
-        DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"", &nrmTextFormat);
+        DWRITE_FONT_STRETCH_NORMAL, 28.0f, L"", &nrmTextFormat);
     if (hr != S_OK) CreateErrorLog(L"Error creating D2D1 nrmTextFormat");
 
     // BRUSHES **********************************************
@@ -734,17 +734,17 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             if (Mario)
             {
                 if (Mario->state == states::jump_up || Mario->state == states::jump_down)break;
-                if (Mario->dir == dirs::right)
+                if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
                 {
                     jump_target_x = Mario->x + 80.0f;
-                    jump_target_y = Mario->y - 130.0f;
+                    jump_target_y = Mario->ey - 130.0f;
                     Mario->Jump(jump_target_x, jump_target_y);
 
                 }
                 else if (Mario->dir == dirs::left)
                 {
                     jump_target_x = Mario->x - 80.0f;
-                    jump_target_y = Mario->y - 130.0f;
+                    jump_target_y = Mario->ey - 130.0f;
                     Mario->Jump(jump_target_x, jump_target_y);
                 }
             }
@@ -765,6 +765,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                     vBullets.back()->dir = dirs::right;
                 }
             }
+            break;
         }
         break;
 
@@ -906,16 +907,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Mario)
         {
-            if (Mario->state == states::jump_up)Mario->Jump(jump_target_x, jump_target_y);
+            return_type return_result = return_type::R_OUT;
+            if (Mario->state == states::jump_up)
+            {
+                return_result = Mario->Jump(jump_target_x, jump_target_y);
+            }
             else if (Mario->state == states::jump_down)
             {
                 if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
-                    Mario->Jump(jump_target_x + 100, Mario->old_y);
+                    return_result = Mario->Jump(jump_target_x + 100, Mario->old_y);
                 else if (Mario->prev_dir == dirs::left)
-                    Mario->Jump(jump_target_x - 100, Mario->old_y);
+                    return_result = Mario->Jump(jump_target_x - 100, Mario->old_y);
                 else Mario->state = states::fall;
-                
-                
+
+                if (return_result == return_type::R_OUT) Mario->state = states::fall;
             }
             else if (Mario->state == states::run)
             {
@@ -930,10 +935,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     Mario->y = scr_height - 155.0f;
                     Mario->SetDims();
                     Mario->state = states::run;
-                    Mario->dir = Mario->prev_dir;
+                    if (Mario->prev_dir != dirs::down && Mario->prev_dir != dirs::up)Mario->dir = Mario->prev_dir;
+                    else Mario->dir = dirs::right;
                 }
             }
-
+            else if (Mario->state == states::stop)Mario->dir = dirs::right;
+            
             if (Mario->x > cl_width && (Mario->state == states::run || Mario->state == states::stop))
             {
                 Mario->x = cl_width - 50.0f;
@@ -976,7 +983,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         else
                         {
                             Mario->state = states::stop;
-                            Mario->dir = Mario->prev_dir;
+                            if (Mario->prev_dir != dirs::down && Mario->prev_dir != dirs::up)Mario->dir = Mario->prev_dir;
+                            else Mario->dir = dirs::right;
                             Mario->x = (*platform)->x;
                             Mario->y = (*platform)->y - 55.0f;
 
@@ -999,7 +1007,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     {
                         if (Mario->state == states::fall && Mario->y > (*platform)->y)break;
                         Mario->state = states::stop;
-                        Mario->dir = Mario->prev_dir;
+                        if (Mario->prev_dir != dirs::down && Mario->prev_dir != dirs::up)Mario->dir = Mario->prev_dir;
+                        else Mario->dir = dirs::right;
                         Mario->x = (*platform)->x;
                         Mario->y = (*platform)->y - 55.0f;
                         Mario->SetDims();
@@ -1015,11 +1024,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             {
                 if (!(Mario->x >= (*tur)->ex || Mario->ex <= (*tur)->x || Mario->y >= (*tur)->ey || Mario->ey <= (*tur)->y))
                 {
-                    if (Mario->prev_dir == dirs::right)
+                    if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
                     {
                         jump_target_x = Mario->x + 80.0f;
-                        jump_target_y = Mario->y - 130.0f;
-                        Mario->state = states::stop;
+                        jump_target_y = Mario->ey - 130.0f;
+                        Mario->state = states::run;
                         Mario->dir = dirs::right;
                         Mario->Jump(jump_target_x, jump_target_y);
 
@@ -1027,8 +1036,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     else if (Mario->prev_dir == dirs::left)
                     {
                         jump_target_x = Mario->x - 80.0f;
-                        jump_target_y = Mario->y - 130.0f;
-                        Mario->state = states::stop;
+                        jump_target_y = Mario->ey - 130.0f;
+                        Mario->state = states::run;
                         Mario->dir = dirs::left;
                         Mario->Jump(jump_target_x, jump_target_y);
                     }
@@ -1039,7 +1048,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     else
                     {
                         (*tur)->state = states::hit;
-                        (*tur)->dir = Mario->prev_dir;
+                        (*tur)->dir = Mario->dir;
                     }
                     break;
                 }
@@ -1145,6 +1154,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             if (!(Mario->x > (*platform)->ex || Mario->ex < (*platform)->x
                                 || Mario->y > (*platform)->ey || Mario->ey < (*platform)->y))
                             {
+                                if (Mario->ey > (*platform)->y && Mario->ey < (*platform)->ey)break;
                                 Mario->state = current_state;
                                 Mario->dir = current_dir;
                                 break;
@@ -1294,7 +1304,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             platform_rows = 1;
         }
 
-        if (platform_rows <= 3 && Mario)
+        if (platform_rows <= 2 && Mario)
         {
             if (rand() % 500 == 6)
             {
@@ -1391,8 +1401,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     {
                         if (vTurtles[i]->type == types::turtle)
                         {
-                            if (Mario_upgraded)Mario_upgraded = false;
-                            else if (Mario->state != states::jump_down && Mario->state != states::fall) lifes--;
+                            if (Mario_upgraded)
+                            {
+                                Mario_upgraded = false;
+                                vTurtles[i]->Transform(types::turtle_blocked);
+                                Mario->state = states::fall;
+                            }
+                            else if (Mario->state != states::jump_down && Mario->state != states::fall)
+                            {
+                                lifes--;
+                                vTurtles[i]->Transform(types::turtle_blocked);
+                                Mario->state = states::fall;
+                                break;
+                            }
                             
                         }
                     }
@@ -1502,6 +1523,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
         
+        //TEXT *******************************************
+
+        wchar_t status_text[150] = L"\0";
+        wchar_t addon[5] = L"\0";
+        int stat_size = 0;
+
+        wcscpy_s(status_text, current_player);
+
+        wcscat_s(status_text, L", животи: ");
+        wsprintf(addon, L"%d", lifes);
+        wcscat_s(status_text, addon);
+
+        wcscat_s(status_text, L", резултат: ");
+        wsprintf(addon, L"%d", score);
+        wcscat_s(status_text, addon);
+
+        for (int i = 0; i < 150; i++)
+        {
+            if (status_text[i] != '\0')stat_size++;
+            else break;
+        }
+
+        Draw->DrawText(status_text, stat_size, nrmTextFormat, D2D1::RectF(5.0f, cl_height - 50.0f, cl_width, cl_height), FieldTxtBrush);
+        ///////////////////////////////////////////////////
+
         if (Mario)
         {
             switch (Mario->state)
