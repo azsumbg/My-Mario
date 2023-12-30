@@ -734,6 +734,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             if (Mario)
             {
                 if (Mario->state == states::jump_up || Mario->state == states::jump_down)break;
+                if (sound)mciSendString(L"play .\\res\\snd\\jump.wav", NULL, NULL, NULL);
                 if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
                 {
                     jump_target_x = Mario->x + 80.0f;
@@ -754,6 +755,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             if (!Mario_upgraded)break;
             if (Mario)
             {
+                if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
                 if (Mario->dir == dirs::left)
                 {
                     vBullets.push_back(iCreate(types::bullet, Mario->x, Mario->y + 20.0f));
@@ -767,6 +769,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             }
             break;
         }
+        break;
+
+    case WM_LBUTTONDOWN:
+        if (cur_pos.x >= b1Rect.left && cur_pos.x <= b1Rect.right && cur_pos.y >= b1Rect.top && cur_pos.y <= b1Rect.bottom)
+        {
+            if (name_set)
+            {
+                if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                break;
+            }
+            if (sound)mciSendString(L"play .\\res\\snd\\menu.wav", NULL, NULL, NULL);
+            if (DialogBoxW(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
+            break;
+        }
+
+
+
         break;
 
     default:return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
@@ -1024,6 +1043,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             {
                 if (!(Mario->x >= (*tur)->ex || Mario->ex <= (*tur)->x || Mario->y >= (*tur)->ey || Mario->ey <= (*tur)->y))
                 {
+                    if (sound)mciSendString(L"play .\\res\\snd\\jump.wav", NULL, NULL, NULL);
                     if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
                     {
                         jump_target_x = Mario->x + 80.0f;
@@ -1063,6 +1083,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 {
                     if ((*tur)->type == types::turtle_blocked)
                     {
+                        if (sound)mciSendString(L"play .\\res\\snd\\hit.wav", NULL, NULL, NULL);
                         (*tur)->state = states::hit;
                         if ((*tur)->dir != dirs::left && (*tur)->dir != dirs::right)(*tur)->dir = Mario->dir;
                         break;
@@ -1087,6 +1108,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         {
                             (*tur)->Release();
                             vTurtles.erase(tur);
+                            score += 50;
                             break;
                         }
                     }
@@ -1097,6 +1119,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         if ((*tur)->ex <= 0)
                         {
                             (*tur)->Release();
+                            score += 50;
                             vTurtles.erase(tur);
                             break;
                         }
@@ -1120,6 +1143,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             || (*allturtles)->y >= (*aturtle)->ey || (*allturtles)->ey <= (*aturtle)->y))
                         {
                             if ((*aturtle)->type == types::turtle_blocked)continue;
+                            if (sound)mciSendString(L"play .\\res\\snd\\hit.wav", NULL, NULL, NULL);
                             (*aturtle)->Transform(types::turtle_blocked);
                             (*allturtles)->Release();
                             vTurtles.erase(allturtles);
@@ -1132,7 +1156,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (killed)break;
             }
         }
-
 
         //RUNNING ON PLATFORM
         if (Mario)
@@ -1154,7 +1177,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             if (!(Mario->x > (*platform)->ex || Mario->ex < (*platform)->x
                                 || Mario->y > (*platform)->ey || Mario->ey < (*platform)->y))
                             {
-                                if (Mario->ey > (*platform)->y && Mario->ey < (*platform)->ey)break;
+                                if ((Mario->ey > (*platform)->y && Mario->ey < (*platform)->ey)
+                                    || (Mario->y > (*platform)->y && Mario->y < (*platform)->ey))break;
                                 Mario->state = current_state;
                                 Mario->dir = current_dir;
                                 break;
