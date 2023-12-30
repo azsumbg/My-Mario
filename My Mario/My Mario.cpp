@@ -118,6 +118,7 @@ ID2D1Bitmap* bmpSun = nullptr;
 ID2D1Bitmap* bmpBullet = nullptr;
 ID2D1Bitmap* bmpAngry = nullptr;
 ID2D1Bitmap* bmpPortal = nullptr;
+ID2D1Bitmap* bmpDeath = nullptr;
 
 ID2D1Bitmap* bmpMarioL[12];
 ID2D1Bitmap* bmpMarioR[12];
@@ -138,6 +139,8 @@ dirs opposite_dir = dirs::stop;
 
 bool Mario_upgraded = false;
 bool game_win = false;
+bool game_over = false;
+
 
 obj_ptr Cloud1 = nullptr;
 obj_ptr Cloud2 = nullptr;
@@ -198,6 +201,7 @@ void ReleaseCOM()
     ClearResource(&bmpBullet);
     ClearResource(&bmpAngry);
     ClearResource(&bmpPortal);
+    ClearResource(&bmpDeath);
 
     ClearResource(&bmpMarioJL);
     ClearResource(&bmpMarioJR);
@@ -342,6 +346,9 @@ void InitD2D1()
     bmpAngry = Load(L".\\res\\img\\mario\\angry.png", Draw);
     if (!bmpAngry)CreateErrorLog(L"Error creating bmpAngry");
 
+    bmpDeath = Load(L".\\res\\img\\mario\\death.png", Draw);
+    if (!bmpDeath)CreateErrorLog(L"Error creating bmpDeath");
+
     bmpMarioJL = Load(L".\\res\\img\\mario\\mario_jumpl.png", Draw);
     if (!bmpMarioJL)CreateErrorLog(L"Error creating bmpMarioJL");
 
@@ -412,7 +419,37 @@ void InitD2D1()
     }
     Sleep(2500);
 }
+BOOL CheckRecord()
+{
+    if (score < 1)return no_record;
 
+    int result = 0;
+
+    CheckFile(record_file, &result);
+
+    if (result == FILE_NOT_EXIST)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return first_record;
+    }
+
+    std::wifstream check(record_file);
+    check >> result;
+    check.close();
+
+    if (result < score)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return record;
+    }
+    return no_record;
+}
 void InitGame()
 {
     wcscpy_s(current_player,L"A PLAYER");
@@ -422,6 +459,8 @@ void InitGame()
     seconds = 0;
     lifes = 3;
     game_win = false;
+    game_over = false;
+
 
     vFields.clear();
     if (Mario)
@@ -474,12 +513,55 @@ void InitGame()
     Sun = new ATOMS(500.0f, 100.0f, 100.0f, 100.0f);
 
     if (Portal)Portal->Release();
-    Portal = new ATOMS(5000.0f, scr_width - 200.0f, 100.0f, 100.0f);
+    Portal = new ATOMS(1500.0f, scr_width - 200.0f, 100.0f, 100.0f);
 }
 void GameOver()
 {
     PlaySound(NULL, NULL, NULL);
     KillTimer(bHwnd, bTimer);
+
+    if (game_win)
+    {
+        score += 500;
+        if (sound)mciSendString(L"play .\\res\\snd\\tada.wav", NULL, NULL, NULL);
+        Draw->BeginDraw();
+        Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkGoldenrod));
+        Draw->DrawText(L"ПРЕВЪРТЯ ИГРАТА !", 18, bigTextFormat, D2D1::RectF(100.0f, 200.0f, cl_width, cl_height), FieldTxtBrush);
+        Draw->EndDraw();
+        Sleep(3000);
+    }
+
+    wchar_t finalt[100] = L"КОСТЕНУРКИТЕ ПОБЕДИХА !";
+    int fin_size = 0;
+
+    switch (CheckRecord())
+    {
+        case no_record:
+            if (sound)PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_ASYNC);
+            break;
+
+        case first_record:
+            if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+            wcscpy_s(finalt, L"ПЪРВИ РЕКОРД НА ИГРАТА !");
+            break;
+
+        case record:
+            if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+            wcscpy_s(finalt, L"СВЕТОВЕН РЕКОРД НА ИГРАТА !");
+            break;
+    }
+
+    for (int i = 0; i < 100; i++)
+    {
+        if (finalt[i] != '\0')fin_size++;
+        else break;
+    }
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkGoldenrod));
+    Draw->DrawText(finalt, fin_size, bigTextFormat, D2D1::RectF(100.0f, 200.0f, cl_width, cl_height), FieldTxtBrush);
+    Draw->EndDraw();
+    Sleep(7000);
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -586,6 +668,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             minutes++;
             seconds = 0;
         }
+        if (minutes > 5)game_over = true;
         break;
 
     case WM_SETCURSOR:
@@ -987,6 +1070,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         {
                             if ((*platform)->type == types::goldbrick)
                             {
+                                if (sound)mciSendString(L"play .\\res\\snd\\goldhit.wav", NULL, NULL, NULL);
                                 (*platform)->Transform(types::brick);
                                 if (rand() % 5 == 3)
                                     vBenefits.push_back(iCreate(types::mushroom, (*platform)->x + 10.0f, (*platform)->y - 40.0f));
@@ -1001,6 +1085,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         }
                         else
                         {
+                            if (sound)mciSendString(L"play .\\res\\snd\\hit.wav", NULL, NULL, NULL);
                             Mario->state = states::stop;
                             if (Mario->prev_dir != dirs::down && Mario->prev_dir != dirs::up)Mario->dir = Mario->prev_dir;
                             else Mario->dir = dirs::right;
@@ -1383,6 +1468,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     if ((*ben)->type == types::coin)score += 50;
                     else if ((*ben)->type == types::mushroom)
                     {
+                        if (sound)mciSendString(L"play .\\res\\snd\\life.wav", NULL, NULL, NULL);
+
                         if (!Mario_upgraded)Mario_upgraded = true;
                         else
                         {
@@ -1433,9 +1520,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             }
                             else if (Mario->state != states::jump_down && Mario->state != states::fall)
                             {
+                                if (sound)mciSendString(L"play .\\res\\snd\\kill.wav", NULL, NULL, NULL);
                                 lifes--;
                                 vTurtles[i]->Transform(types::turtle_blocked);
                                 Mario->state = states::fall;
+                                if (lifes <= 0)game_over = true;
                                 break;
                             }
                             
@@ -1449,12 +1538,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             if (Mario->dir == dirs::right)
             {
-                Portal->x += 0.8f;
+                Portal->x -= 0.8f;
                 Portal->SetDims();
             }
             else if (Mario->dir == dirs::left)
             {
-                Portal->x -= 0.8f;
+                Portal->x += 0.8f;
                 Portal->SetDims();
             }
 
@@ -1549,7 +1638,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         
         //TEXT *******************************************
 
-        wchar_t status_text[150] = L"\0";
+        wchar_t status_text[200] = L"\0";
         wchar_t addon[5] = L"\0";
         int stat_size = 0;
 
@@ -1563,7 +1652,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         wsprintf(addon, L"%d", score);
         wcscat_s(status_text, addon);
 
-        for (int i = 0; i < 150; i++)
+        wcscat_s(status_text, L", време: ");
+        wsprintf(addon, L"%d", minutes);
+        wcscat_s(status_text, addon);
+
+        wcscat_s(status_text, L" : ");
+        wsprintf(addon, L"%d", seconds);
+        wcscat_s(status_text, addon);
+
+        wcscat_s(status_text, L", разстояние: ");
+        if (Mario && Portal)
+            swprintf(addon, 5, L"%lf", (Portal->x - Mario->ex));
+        wcscat_s(status_text, addon);
+
+        for (int i = 0; i < 200; i++)
         {
             if (status_text[i] != '\0')stat_size++;
             else break;
@@ -1572,142 +1674,156 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         Draw->DrawText(status_text, stat_size, nrmTextFormat, D2D1::RectF(5.0f, cl_height - 50.0f, cl_width, cl_height), FieldTxtBrush);
         ///////////////////////////////////////////////////
 
-        if (Mario)
+        if (!game_over)
         {
-            switch (Mario->state)
+            if (Mario)
             {
-            case states::run:
-                if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
-                    Draw->DrawBitmap(bmpMarioR[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::left)
+                switch (Mario->state)
+                {
+                case states::run:
+                    if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
+                        Draw->DrawBitmap(bmpMarioR[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->dir == dirs::left)
                         Draw->DrawBitmap(bmpMarioL[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                break;
-
-            case states::move:
-                if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
-                    Draw->DrawBitmap(bmpMarioR[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::left)
-                    Draw->DrawBitmap(bmpMarioL[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                break;
-
-            case states::stop:
-                if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
-                    Draw->DrawBitmap(bmpMarioR[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::left)
-                    Draw->DrawBitmap(bmpMarioL[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::stop && Mario->prev_dir == dirs::left)
-                    Draw->DrawBitmap(bmpMarioL[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->dir == dirs::stop && Mario->prev_dir == dirs::right)
-                    Draw->DrawBitmap(bmpMarioR[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                break;
-            
-            case states::jump_up:
-                if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
-                    Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->prev_dir == dirs::left)
-                    Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                break;
-
-            case states::jump_down:
-                if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
-                    Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->prev_dir == dirs::left)
-                    Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                break;
-
-            case states::fall:
-                if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
-                    Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                else if (Mario->prev_dir == dirs::left)
-                    Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
-                break;
-
-            }
-        }
-
-        if (Mario && Mario_upgraded)
-            Draw->DrawBitmap(bmpAngry, D2D1::RectF(Mario->x + 20.0f, Mario->y - 22.0f, Mario->x + 35.0f, Mario->y));
-
-        if (!vBenefits.empty())
-        {
-            for (int i = 0; i < vBenefits.size(); i++)
-            {
-                switch (vBenefits[i]->type)
-                {
-                case types::mushroom:
-                    Draw->DrawBitmap(bmpMushroom, 
-                        D2D1::RectF(vBenefits[i]->x, vBenefits[i]->y, vBenefits[i]->ex, vBenefits[i]->ey));
                     break;
 
-                case types::coin:
-                    Draw->DrawBitmap(bmpGold,
-                        D2D1::RectF(vBenefits[i]->x, vBenefits[i]->y, vBenefits[i]->ex, vBenefits[i]->ey));
+                case states::move:
+                    if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
+                        Draw->DrawBitmap(bmpMarioR[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->dir == dirs::left)
+                        Draw->DrawBitmap(bmpMarioL[Mario->GetFrame()], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
                     break;
+
+                case states::stop:
+                    if (Mario->dir == dirs::right || Mario->dir == dirs::stop)
+                        Draw->DrawBitmap(bmpMarioR[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->dir == dirs::left)
+                        Draw->DrawBitmap(bmpMarioL[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->dir == dirs::stop && Mario->prev_dir == dirs::left)
+                        Draw->DrawBitmap(bmpMarioL[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->dir == dirs::stop && Mario->prev_dir == dirs::right)
+                        Draw->DrawBitmap(bmpMarioR[3], D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    break;
+
+                case states::jump_up:
+                    if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
+                        Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->prev_dir == dirs::left)
+                        Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    break;
+
+                case states::jump_down:
+                    if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
+                        Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->prev_dir == dirs::left)
+                        Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    break;
+
+                case states::fall:
+                    if (Mario->prev_dir == dirs::right || Mario->prev_dir == dirs::stop)
+                        Draw->DrawBitmap(bmpMarioJR, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    else if (Mario->prev_dir == dirs::left)
+                        Draw->DrawBitmap(bmpMarioJL, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+                    break;
+
                 }
             }
-        }
 
-        if (!vBullets.empty())
-        {
-            for (int i = 0; i < vBullets.size(); i++)
-                Draw->DrawBitmap(bmpBullet, D2D1::RectF(vBullets[i]->x, vBullets[i]->y, vBullets[i]->ex, vBullets[i]->ey));
-        }
+            if (Mario && Mario_upgraded)
+                Draw->DrawBitmap(bmpAngry, D2D1::RectF(Mario->x + 20.0f, Mario->y - 22.0f, Mario->x + 35.0f, Mario->y));
 
-        if (!vTurtles.empty())
-        {
-            for (int i = 0; i < vTurtles.size(); i++)
+            if (!vBenefits.empty())
             {
-                switch (vTurtles[i]->type)
+                for (int i = 0; i < vBenefits.size(); i++)
                 {
-                case types::turtle:
-                    if (vTurtles[i]->dir == dirs::left)
-                        Draw->DrawBitmap(bmpTurtleL[vTurtles[i]->GetFrame()],
-                            D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
-                    if (vTurtles[i]->dir == dirs::right)
-                        Draw->DrawBitmap(bmpTurtleR[vTurtles[i]->GetFrame()],
-                            D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
-                    break;
-
-
-                case types::turtle_blocked:
-                    Draw->DrawBitmap(bmpTurtleBlocked, 
-                        D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
-                    break;
-                }
-            }
-        }
-
-        if (!vTurtles.empty() && !vBullets.empty())
-        {
-            for (std::vector<obj_ptr>::iterator bul = vBullets.begin(); bul < vBullets.end(); ++bul)
-            {
-                bool killed = false;
-
-                for (std::vector<obj_ptr>::iterator tur = vTurtles.begin(); tur < vTurtles.end(); ++tur)
-                {
-                    if (!((*bul)->x >= (*tur)->ex || (*bul)->ex <= (*tur)->x || (*bul)->y >= (*tur)->ey || (*bul)->ey <= (*tur)->y))
+                    switch (vBenefits[i]->type)
                     {
-                        score += 50;
-                        killed = true;
-                        (*bul)->Release();
-                        (*tur)->Release();
-                        vBullets.erase(bul);
-                        vTurtles.erase(tur);
+                    case types::mushroom:
+                        Draw->DrawBitmap(bmpMushroom,
+                            D2D1::RectF(vBenefits[i]->x, vBenefits[i]->y, vBenefits[i]->ex, vBenefits[i]->ey));
+                        break;
 
+                    case types::coin:
+                        Draw->DrawBitmap(bmpGold,
+                            D2D1::RectF(vBenefits[i]->x, vBenefits[i]->y, vBenefits[i]->ex, vBenefits[i]->ey));
+                        break;
                     }
                 }
-                if (killed)break;
+            }
+
+            if (!vBullets.empty())
+            {
+                for (int i = 0; i < vBullets.size(); i++)
+                    Draw->DrawBitmap(bmpBullet, D2D1::RectF(vBullets[i]->x, vBullets[i]->y, vBullets[i]->ex, vBullets[i]->ey));
+            }
+
+            if (!vTurtles.empty())
+            {
+                for (int i = 0; i < vTurtles.size(); i++)
+                {
+                    switch (vTurtles[i]->type)
+                    {
+                    case types::turtle:
+                        if (vTurtles[i]->dir == dirs::left)
+                            Draw->DrawBitmap(bmpTurtleL[vTurtles[i]->GetFrame()],
+                                D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
+                        if (vTurtles[i]->dir == dirs::right)
+                            Draw->DrawBitmap(bmpTurtleR[vTurtles[i]->GetFrame()],
+                                D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
+                        break;
+
+
+                    case types::turtle_blocked:
+                        Draw->DrawBitmap(bmpTurtleBlocked,
+                            D2D1::RectF(vTurtles[i]->x, vTurtles[i]->y, vTurtles[i]->ex, vTurtles[i]->ey));
+                        break;
+                    }
+                }
+            }
+
+            if (!vTurtles.empty() && !vBullets.empty())
+            {
+                for (std::vector<obj_ptr>::iterator bul = vBullets.begin(); bul < vBullets.end(); ++bul)
+                {
+                    bool killed = false;
+
+                    for (std::vector<obj_ptr>::iterator tur = vTurtles.begin(); tur < vTurtles.end(); ++tur)
+                    {
+                        if (!((*bul)->x >= (*tur)->ex || (*bul)->ex <= (*tur)->x || (*bul)->y >= (*tur)->ey || (*bul)->ey <= (*tur)->y))
+                        {
+                            score += 50;
+                            killed = true;
+                            (*bul)->Release();
+                            (*tur)->Release();
+                            vBullets.erase(bul);
+                            vTurtles.erase(tur);
+
+                        }
+                    }
+                    if (killed)break;
+                }
             }
         }
-
+        else
+        {
+            if (Mario)
+                Draw->DrawBitmap(bmpDeath, D2D1::RectF(Mario->x, Mario->y, Mario->ex, Mario->ey));
+        }
+        
         if (Portal && Portal->x <= cl_width)Draw->DrawBitmap(bmpPortal, D2D1::RectF(Portal->x, Portal->y, Portal->ex, Portal->ey));
+        
         ////////////////////////////////////////////////////////
         
         if (Cloud1)Draw->DrawBitmap(bmpCloud1, D2D1::RectF(Cloud1->x, Cloud1->y, Cloud1->ex, Cloud1->ey));
         if (Cloud2)Draw->DrawBitmap(bmpCloud2, D2D1::RectF(Cloud2->x, Cloud2->y, Cloud2->ex, Cloud2->ey));
-        
+
         Draw->EndDraw();
-        
+
+        if (game_over)
+        {
+            Sleep(2500);
+            GameOver();
+        }
     }
 
     std::remove(temp_file);
