@@ -513,7 +513,7 @@ void InitGame()
     Sun = new ATOMS(500.0f, 100.0f, 100.0f, 100.0f);
 
     if (Portal)Portal->Release();
-    Portal = new ATOMS(1500.0f, scr_width - 200.0f, 100.0f, 100.0f);
+    Portal = new ATOMS(3000.0f, scr_height - 200.0f, 100.0f, 100.0f);
 }
 void GameOver()
 {
@@ -567,6 +567,56 @@ void GameOver()
     bMsg.wParam = 0;
 }
 
+void HallofFame()
+{
+    int result = 0;
+    CheckFile(record_file, &result);
+
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONERROR);
+        MessageBox(bHwnd, L"Все още няма записан рекорд !\n\nПостарай се повече !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+        return;
+    }
+
+    wchar_t status_text[150] = L"НАЙ-ДОБЪР В СВЕТА: ";
+    wchar_t add[5] = L"\0";
+    int stat = 0;
+    wchar_t saved_player[16] = L"\0";
+    
+    std::wifstream rec(record_file);
+    rec >> stat;
+    swprintf(add, 5, L"%d", stat);
+    for (int i = 0; i < 16; i++)
+    {
+        int aletter = 0;
+        rec >> aletter;
+        saved_player[i] = static_cast<wchar_t>(aletter);
+    }
+    rec.close();
+
+    wcscat_s(status_text, saved_player);
+    wcscat_s(status_text, L"\nсветовен рекорд: ");
+    wcscat_s(status_text, add);
+    
+    stat = 0;
+
+    for (int i = 0; i < 150; i++)
+    {
+        if (status_text[i] != 0)stat++;
+        else break;
+    }
+
+    if (sound)mciSendString(L"play .\\res\\snd\\tada.wav", NULL, NULL, NULL);
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkGoldenrod));
+    Draw->DrawText(status_text, stat, bigTextFormat, D2D1::RectF(100.0f, 100.0f, cl_width, cl_height), FieldTxtBrush);
+    Draw->EndDraw();
+    Sleep(4000);
+
+}
 ////////////////////////////////////////////////////////////
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -785,6 +835,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
         case mExit:
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
+            break;
+
+        case mHoF:
+            pause = true;
+            HallofFame();
+            pause = false;
             break;
 
         }
@@ -1536,17 +1592,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Portal && Mario)
         {
-            if (Mario->dir == dirs::right)
+            if (Mario->state != states::stop)
             {
-                Portal->x -= 0.8f;
-                Portal->SetDims();
+                if (Mario->dir == dirs::right)
+                {
+                    Portal->x -= 0.8f;
+                    Portal->SetDims();
+                }
+                else if (Mario->dir == dirs::left)
+                {
+                    Portal->x += 0.8f;
+                    Portal->SetDims();
+                }
             }
-            else if (Mario->dir == dirs::left)
-            {
-                Portal->x += 0.8f;
-                Portal->SetDims();
-            }
-
             if (!(Mario->x >= Portal->ex || Mario->ex +20.0f <= Portal->x || Mario->y >= Portal->ey || Mario->ey <= Portal->y))
             {
                 game_win=true;
@@ -1639,7 +1697,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         //TEXT *******************************************
 
         wchar_t status_text[200] = L"\0";
-        wchar_t addon[5] = L"\0";
+        wchar_t addon[10] = L"\0";
         int stat_size = 0;
 
         wcscpy_s(status_text, current_player);
@@ -1662,7 +1720,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         wcscat_s(status_text, L", разстояние: ");
         if (Mario && Portal)
-            swprintf(addon, 5, L"%lf", (Portal->x - Mario->ex));
+            swprintf(addon, 8, L"%lf", (Portal->x - cl_width));
         wcscat_s(status_text, addon);
 
         for (int i = 0; i < 200; i++)
