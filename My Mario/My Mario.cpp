@@ -461,23 +461,32 @@ void InitGame()
     game_win = false;
     game_over = false;
 
-
     vFields.clear();
     if (Mario)
     {
         Mario->Release();
         Mario = nullptr;
     }
-    else
-    {
-        Mario = iCreate(types::mario, 100.0f, cl_height - 340.0f);
-        Mario->dir = dirs::right;
-        Mario->state = states::run;
-    }
+    
+    Mario = iCreate(types::mario, 100.0f, cl_height - 340.0f);
+    Mario->dir = dirs::right;
+    Mario->state = states::run;
+    
 
     Mario_upgraded = false;
     for (float i = -1000; i < 2000; i += 1000) vFields.push_back(iCreate(types::field, i, scr_height - 100.0f));
     
+    if (!vMountains.empty())
+        for (int i = 0; i < vMountains.size(); i++) if (vMountains[i])vMountains[i]->Release();
+    if (!vBenefits.empty())
+        for (int i = 0; i < vBenefits.size(); i++) if (vBenefits[i])vBenefits[i]->Release();
+    if (!vTurtles.empty())
+        for (int i = 0; i < vTurtles.size(); i++) if (vTurtles[i])vTurtles[i]->Release();
+    if (!vPlatforms.empty())
+        for (int i = 0; i < vPlatforms.size(); i++) if (vPlatforms[i])vPlatforms[i]->Release();
+    if (!vBullets.empty())
+        for (int i = 0; i < vBullets.size(); i++) if (vBullets[i])vBullets[i]->Release();
+
     vMountains.clear();
     vBenefits.clear();
     vPlatforms.clear();
@@ -502,7 +511,6 @@ void InitGame()
        
     if (Cloud2) Cloud2->dir = dirs::left;
         
-
     if (Mario)base_platform_y = Mario->y - 80.0f;
 
     vPlatforms.push_back(iCreate(types::brick, 500.0f, base_platform_y));
@@ -617,6 +625,265 @@ void HallofFame()
     Sleep(4000);
 
 }
+void SaveGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+
+    if (result == FILE_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONASTERISK);
+        if (MessageBox(bHwnd, L"Има записана игра, която ще бъде загубена !\n\nНаистина ли да я презапиша ?",
+            L"Презапис !", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wofstream save(save_file);
+
+    save << score << std::endl;
+    save << seconds << std::endl;
+    save << lifes << std::endl;
+    for (int i = 0; i < 16; ++i)save << static_cast<int>(current_player[i]) << std::endl;
+    save << name_set << std::endl;
+    save << name_size << std::endl;
+
+    if (Mario)
+    {
+        save << Mario->x << std::endl;
+        save << Mario->y << std::endl;
+        save << static_cast<int>(Mario->state) << std::endl;
+        save << static_cast<int>(Mario->dir) << std::endl;
+        save << static_cast<int>(Mario->prev_dir) << std::endl;
+        save << Mario_upgraded << std::endl;
+        save << jump_target_x << std::endl;
+        save << jump_target_y << std::endl;
+    }
+
+    save << vPlatforms.size() << std::endl;
+    if (vPlatforms.size() > 0)
+    {
+        for (int i = 0; i < vPlatforms.size(); ++i)
+        {
+            save << vPlatforms[i]->x << std::endl;
+            save << vPlatforms[i]->y << std::endl;
+            save << static_cast<int>(vPlatforms[i]->type) << std::endl;
+            save << static_cast<int>(vPlatforms[i]->dir) << std::endl;
+        }
+    }
+    
+    save << vBenefits.size() << std::endl;
+    if (vBenefits.size() > 0)
+    {
+        for (int i = 0; i < vBenefits.size(); ++i)
+        {
+            save << vBenefits[i]->x << std::endl;
+            save << vBenefits[i]->y << std::endl;
+            save << static_cast<int>(vBenefits[i]->type) << std::endl;
+            save << static_cast<int>(vBenefits[i]->dir) << std::endl;
+        }
+    }
+
+    save << vTurtles.size() << std::endl;
+    if (vTurtles.size() > 0)
+    {
+        for (int i = 0; i < vTurtles.size(); ++i)
+        {
+            save << vTurtles[i]->x << std::endl;
+            save << vTurtles[i]->y << std::endl;
+            save << static_cast<int>(vTurtles[i]->type) << std::endl;
+            save << static_cast<int>(vTurtles[i]->dir) << std::endl;
+            save << static_cast<int>(vTurtles[i]->state) << std::endl;
+        }
+    }
+
+    save << vBullets.size() << std::endl;
+    if (vBullets.size() > 0)
+    {
+        for (int i = 0; i < vBullets.size(); ++i)
+        {
+            save << vBullets[i]->x << std::endl;
+            save << vBullets[i]->y << std::endl;
+            save << static_cast<int>(vBullets[i]->dir) << std::endl;
+        }
+    }
+
+    save << Portal->x << std::endl;
+    save << Portal->y << std::endl;
+
+    save.close();
+
+    MessageBox(bHwnd, L"Играта е запазена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONERROR);
+        MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+        return;
+    }
+    else
+    {
+        if(sound)MessageBeep(MB_ICONASTERISK);
+        if (MessageBox(bHwnd, L"Ако продължиш, ще загубиш сегашната игра !\n\nНаистина ли да я презапиша ?",
+            L"Презапис !", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wifstream save(save_file);
+
+    if (Mario)
+    {
+        Mario->Release();
+        Mario = nullptr;
+    }
+
+    if (!vMountains.empty())
+        for (int i = 0; i < vMountains.size(); i++) if (vMountains[i])vMountains[i]->Release();
+    if (!vBenefits.empty())
+        for (int i = 0; i < vBenefits.size(); i++) if (vBenefits[i])vBenefits[i]->Release();
+    if (!vTurtles.empty())
+        for (int i = 0; i < vTurtles.size(); i++) if (vTurtles[i])vTurtles[i]->Release();
+    if (!vPlatforms.empty())
+        for (int i = 0; i < vPlatforms.size(); i++) if (vPlatforms[i])vPlatforms[i]->Release();
+    if (!vBullets.empty())
+        for (int i = 0; i < vBullets.size(); i++) if (vBullets[i])vBullets[i]->Release();
+
+    vMountains.clear();
+    vBenefits.clear();
+    vPlatforms.clear();
+    vBullets.clear();
+    vTurtles.clear();
+    if (Portal)Portal->Release();
+
+    result = 0;
+    int vsize = 0;
+    float tx = 0;
+    float ty = 0;
+
+    save >> score;
+    save >> seconds;
+    save >> lifes;
+    for (int i = 0; i < 16; ++i)
+    {
+        int letter = 0;
+        save >> letter; 
+        current_player[i]=static_cast<wchar_t>(letter);
+    }
+    save >> name_set;
+    save >> name_size;
+    
+    save >> tx;
+    save >> ty;
+    
+    Mario = iCreate(types::mario, tx, ty);
+    save >> result;
+    if (Mario)Mario->state = static_cast<states>(result);
+    save >> result;
+    if (Mario)Mario->dir = static_cast<dirs>(result);
+    save >> result;
+    if (Mario)Mario->prev_dir = static_cast<dirs>(result);
+    save >> Mario_upgraded;
+    save >> jump_target_x;
+    save >> jump_target_y;
+
+    save >> vsize;
+
+    if (vsize > 0)
+    {
+        for (int i = 0; i < vsize; ++i)
+        {
+            float px = 0;
+            float py = 0;
+            int ptype = 0;
+            int pdir = 0;
+            
+            save >> px;
+            save >> py;
+            save >> ptype;
+            save >> pdir;
+
+            vPlatforms.push_back(iCreate(static_cast<types>(ptype), px, py));
+            vPlatforms.back()->dir = static_cast<dirs>(pdir);
+        }
+    }
+    
+    save >> vsize;
+
+    if (vsize > 0)
+    {
+        for (int i = 0; i < vsize; ++i)
+        {
+            float px = 0;
+            float py = 0;
+            int ptype = 0;
+            int pdir = 0;
+
+            save >> px;
+            save >> py;
+            save >> ptype;
+            save >> pdir;
+
+            vBenefits.push_back(iCreate(static_cast<types>(ptype), px, py));
+            vBenefits.back()->dir = static_cast<dirs>(pdir);
+        }
+    }
+    
+    save >> vsize;
+    if (vsize > 0)
+    {
+        for (int i = 0; i < vsize; ++i)
+        {
+            float px = 0;
+            float py = 0;
+            int ptype = 0;
+            int pdir = 0;
+            int pstate = 0;
+
+            save >> px;
+            save >> py;
+            save >> ptype;
+            save >> pdir;
+            save >> pstate;
+
+            vTurtles.push_back(iCreate(types::turtle, px, py));
+            if (static_cast<types>(ptype) == types::turtle_blocked)vTurtles.back()->Transform(types::turtle_blocked);
+            vTurtles.back()->dir = static_cast<dirs>(pdir);
+            vTurtles.back()->state = static_cast<states>(pstate);
+        }
+    }
+    
+    save >> vsize;
+    if (vsize > 0)
+    {
+        for (int i = 0; i < vsize; ++i)
+        {
+            float px = 0;
+            float py = 0;
+            int pdir = 0;
+
+            save >> px;
+            save >> py;
+            save >> pdir;
+
+            vBullets.push_back(iCreate(types::bullet, px, py));
+            vBullets.back()->dir = static_cast<dirs>(pdir);
+
+        }
+    }
+
+    save >> tx;
+    save >> ty;
+
+    Portal = new ATOMS(tx, ty, 100.0f, 100.0f);
+    
+    save.close();
+
+    MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+
 ////////////////////////////////////////////////////////////
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -835,6 +1102,18 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
         case mExit:
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
+            break;
+
+        case mSave:
+            pause = true;
+            SaveGame();
+            pause = false;
+            break;
+
+        case mLoad:
+            pause = true;
+            LoadGame();
+            pause = false;
             break;
 
         case mHoF:
